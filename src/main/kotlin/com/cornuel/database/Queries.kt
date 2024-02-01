@@ -1,8 +1,6 @@
 package com.cornuel.bdd.services
 
-import com.cornuel.models.AllValues
-import com.cornuel.models.IdClient
-import com.cornuel.models.UserModel
+import com.cornuel.models.*
 import org.mindrot.jbcrypt.BCrypt
 
 
@@ -62,33 +60,119 @@ class Queries() {
         return ar_IdClient
     }
 
-    fun loginAvailable(user: UserModel): Boolean {
-
-        val storedHashedPassword = getHashedPasswordFromDb(user.username) ?: return false
-        return checkPassword(user.password, storedHashedPassword)
-    }
-
-    fun getHashedPasswordFromDb(username: String?): String? {
+    fun insertInverter(inverter: AddInverterModel) {
         val query = laConnexion
             .getConnexion()!!
-            .prepareStatement("SELECT password FROM user WHERE login = ?")
+            .prepareStatement("INSERT INTO inverter (name, macAddress, position, isOnline, values_id, settings_id, warnings_id) VALUES (?, ?, ?, ?, ?, ?, ?)")
 
-        query.setString(1, username)
+        query.setString(1, inverter.name)
+        query.setString(2, inverter.macAddress)
+        query.setString(3, inverter.position)
+        query.setBoolean(4, inverter.isOnline!!)
+        query.setInt(5, inverter.values_id!!)
+        query.setInt(6, inverter.settings_id!!)
+        query.setInt(4, inverter.warnings_id!!)
+
+        query.executeUpdate()
+    }
+
+    fun insertValuesInverter(values: AddValuesInverterModel) {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement("INSERT INTO values_inverter (kilowatter, volts, batteryPercentage, earnings_id) VALUES (?, ?, ?, ?)")
+
+        query.setInt(1, values.kilowatter!!)
+        query.setInt(2, values.volts!!)
+        query.setInt(3, values.batteryPercentage!!)
+        query.setInt(4, values.earnings_id!!)
+
+        query.executeUpdate()
+    }
+
+    fun insertSettingsInverter(settings: AddSettingsInverterModel) {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement("INSERT INTO settings (un, deux, trois) VALUES (?, ?, ?)")
+
+        query.setString(1, settings.un)
+        query.setString(2, settings.deux)
+        query.setString(3, settings.trois)
+
+        query.executeUpdate()
+
+    }
+
+    fun insertWarningInverter(warnings: AddWarningsInverterModel) {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement("INSERT INTO warnings (wUn, wDeux, wTrois) VALUES (?, ?, ?)")
+
+        query.setString(1, warnings.wUn)
+        query.setString(2, warnings.wDeux)
+        query.setString(3, warnings.wTrois)
+
+        query.executeUpdate()
+    }
+
+
+    fun loginAvailable(user: UserModel): Boolean {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement("SELECT * FROM user WHERE email = ? AND password=PASSWORD(?)")
+
+        query.setString(1, user.email)
+        query.setString(2, user.password)
         val rs = query.executeQuery()
 
         if (rs.next()) {
-            return rs.getString("password")
+            return true
+        } else {
+            return false
         }
+    }
+
+    fun isUserAdmin(user: UserModel): Boolean? {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement("SELECT isAdmin FROM user WHERE email = ?")
+
+        query.setString(1, user.email)
+        val rs = query.executeQuery()
+
+        if (rs.next()) {
+            return rs.getBoolean("isAdmin")
+        } else {
+            return null
+        }
+
+    }
+
+    fun getLastSettingsID(): Int? {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement("SELECT MAX(settings_id) AS max_id FROM settings")
+
+        val rs = query.executeQuery()
+
+        if (rs.next()) {
+            return rs.getInt("max_id")
+        } else {
+            return null
+        }
+    }
+
+    fun getLastWarningsID(): Int? {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement("SELECT max(warnings_id) FROM warnings")
+
+        val rs = query.executeQuery()
+
+        return rs.getInt("warnings_id")
+    }
+
+    fun getLastEarningsID(): Int? {
         return null
-    }
-
-    fun checkPassword(plainPassword: String?, hashedPassword: String): Boolean {
-
-        return BCrypt.checkpw(plainPassword, hashedPassword)
-    }
-
-    fun hashPassword(password: String?): String {
-        return BCrypt.hashpw(password, BCrypt.gensalt())
     }
 
 

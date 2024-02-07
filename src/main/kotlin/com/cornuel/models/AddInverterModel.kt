@@ -8,9 +8,13 @@ data class AddInverterModel(
     val macAddress: String? = null,
     val position: String? = null,
     val isOnline: Boolean? = null,
-
-    val values_id: Int? = null,
-    var settings_id: Int? = null,
-    var warnings_id: Int? = null
-
+    val kilowatter: Double? = null,
+    val volts: Double? = null,
+    val batteryPercentage: Int? = null,
+    val un: String? = null,
+    val deux: String? = null,
+    val trois: String? = null,
+    val wUn: String? = null,
+    val wDeux: String? = null,
+    val wTrois: String? = null
 )

@@ -24,10 +24,7 @@ fun Application.configureSockets() {
 
     routing {
 
-
         val queries = Queries()
-
-
 
         webSocket("/ws/getuservalues/{id}") {
 

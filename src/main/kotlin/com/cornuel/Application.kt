@@ -22,7 +22,7 @@ fun main() {
     val environment = applicationEngineEnvironment {
         connector {
             port = 8080
-            host = "10.0.0.172"
+            host = "0.0.0.0"
         }
 
         sslConnector(
@@ -31,7 +31,7 @@ fun main() {
             keyStorePassword = { "inverter".toCharArray() },
             privateKeyPassword = { "inverter".toCharArray() }) {
             port = 8443
-            host = "10.0.0.172"
+            host = "0.0.0.0"
             keyStorePath = keyStoreFile
         }
         module {

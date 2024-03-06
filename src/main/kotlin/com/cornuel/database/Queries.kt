@@ -1,86 +1,166 @@
 package com.cornuel.bdd.services
 
 import com.cornuel.models.*
+import com.cornuel.models.jwt.Inverter
+import com.cornuel.models.jwt.User
+import org.mindrot.jbcrypt.BCrypt
 
-
+// Définition d'une classe Queries
 class Queries() {
 
-    var laConnexion = Connexion("localhost", "project2024", "root", "")
+    companion object {
 
-    var querieGetAllUserValues =
-        "SELECT u.user_id, u.email, u.login, u.createdAt, i.name, i.macAddress, i.position, i.isOnline, v.kilowatter, v.volts, v.batteryPercentage, s.un, s.deux, s.trois, w.wUn, w.wDeux, w.wTrois FROM `link` JOIN user u JOIN inverter i JOIN values_inverter v join settings s JOIN warnings w on u.user_id = link.user_id and i.inverter_id = link.inverter_id and v.values_id = link.values_id and s.settings_id = link.settings_id and w.warnings_id = link.warnings_id WHERE u.user_id = ?"
-    var querieGetAllUserId = "SELECT user.user_id FROM user"
-    var querieGetUserIdAndIsAdmin = "SELECT user.user_id, user.isAdmin FROM user WHERE user.email = ?"
+        // Requête SQL pour récupérer toutes les valeurs des utilisateurs et des onduleurs associés
+        var querieGetAllUserValues =
+            "SELECT user.iduser, user.email, user.name, user.isAdmin, user.createdAt, inverter.name, inverter.macAddress, inverter.position, inverter.isOnline, inverter.batteryPercentage, settings.gridVoltage, settings.gridFrequency, settings.ACoutputVoltage, settings.ACoutputFrequency, settings.ACoutputApparentPower, settings.ACoutputActivePower, settings.BUSvoltage, settings.batteryVoltage, settings.batteryChargingCurrent, settings.batteryCapacity, settings.inverterHeatSinkTemperature, settings.PVinputCurrent, settings.PVinputVoltage, settings.batteryVoltageSCC, settings.batteryDischargeCurrent, settings.deviceStatus, warnings.lineFail, warnings.OPVShort, warnings.batteryLowAlarm, warnings.EEPROMdefault, warnings.powerLimit, warnings.highPVvoltage, warnings.MPPTOverloadFault, warnings.MPPTOverloadWarning, warnings.batteryLowToCharge FROM inverter JOIN user JOIN settings JOIN warnings ON inverter.user_iduser = user.iduser AND inverter.settings_idsettings = settings.idsettings AND inverter.warnings_idwarnings = warnings.idwarnings AND inverter.warnings_idwarnings = warnings.idwarnings WHERE inverter.user_iduser = ?;"
 
-    var querieIsLoginCorrect = "SELECT * FROM user WHERE email = ? AND password=PASSWORD(?)"
-    var querieIsUserAdmin = "SELECT isAdmin FROM user WHERE email = ?"
-    var querieIsMacAddressCorrect = "SELECT * FROM inverter WHERE macAddress = ?"
+        // Requêtes pour récupérer des informations sur les utilisateurs
+        var querieGetAllUserId = "SELECT user.iduser FROM user"
+        var querieGetUserId = "SELECT user.iduser FROM user WHERE user.email = ?"
+        var querieGetPassword = "SELECT user.password FROM `user` WHERE user.iduser = ?"
 
-    var querieGetLastSettingsID = "SELECT MAX(settings_id) AS max_id FROM settings"
-    var querieGetLastWarningsID = "SELECT MAX(warnings_id) as max_id FROM warnings"
-    var querieGetLastValuesInverterID = "SELECT MAX(values_id) as max_id FROM values_inverter"
-    var querieGetLastInverterID = "SELECT MAX(inverter_id) as max_id FROM inverter"
-    var querieGetLastUserID = "SELECT MAX(user_id) as max_id FROM user"
+        // Requêtes de vérification d'existence d'utilisateur et d'onduleur
+        var querieUserExist = "SELECT * from user WHERE email=?"
+        var querieInverterExist = "SELECT * from inverter WHERE macAddress=?"
+
+        // Requêtes pour obtenir les derniers identifiants des différentes tables
+        var querieGetLastSettingsID = "SELECT MAX(idsettings) AS max_id FROM settings"
+        var querieGetLastWarningsID = "SELECT MAX(idwarnings) as max_id FROM warnings"
+        var querieGetLastInverterID = "SELECT MAX(idinverter) as max_id FROM inverter"
+        var querieGetLastUserID = "SELECT MAX(iduser) as max_id FROM user"
+
+        // Requêtes d'insertion de données dans les tables
+        var querieInsertInverter =
+            "INSERT INTO inverter (name, macAddress, position, isOnline, batteryPercentage, warnings_idwarnings, settings_idsettings, user_iduser) VALUES (?, ?, ?, ?, ?, ?, ?, null)"
+        var querieInsertSettingsInverter =
+            "INSERT INTO settings (gridVoltage, gridFrequency, ACoutputVoltage, ACoutputFrequency, ACoutputApparentPower, ACoutputActivePower, BUSvoltage, batteryVoltage, batteryChargingCurrent, batteryCapacity, inverterHeatSinkTemperature, PVinputCurrent, PVinputVoltage, batteryVoltageSCC, batteryDischargeCurrent, deviceStatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        var querieInsertWarningInverter =
+            "INSERT INTO warnings (lineFail, OPVShort, batteryLowAlarm, EEPROMdefault, powerLimit, highPVvoltage, MPPTOverloadFault, MPPTOverloadWarning, batteryLowToCharge) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+        var querieInsertUser =
+            "INSERT INTO user (email, name, password, isAdmin, createdAt) VALUES (?, ?, ?, 0, NOW())"
+
+        var querieInsertEarningsInverter =
+            "INSERT INTO earnings (date, euro, kilowatter, inverter_idinverter) VALUES (?, ?, ?, ?)"
+
+        // Requête de mise à jour du prix
+        var querieUpdatePrice = "UPDATE price SET kwPrice = ? "
+
+        // Requêtes de mise à jour des données dans les tables
+        var querieUpdateUserIDInverter = "UPDATE inverter SET user_iduser = ? WHERE idinverter = ?"
+        var querieUpdateInverter =
+            "UPDATE inverter SET name = ?, position = ?, isOnline = ?, batteryPercentage = ? WHERE idinverter = ?"
+        var querieUpdateUser = "UPDATE user SET email = ?, name = ? WHERE iduser = ?"
+
+        // Requête pour obtenir les gains d'un utilisateur entre deux dates
+        var querieGetEarningsUserBetween2Dates =
+            "SELECT earnings.date, earnings.euro, earnings.kilowatter FROM `inverter` JOIN earnings on inverter.idinverter = earnings.inverter_idinverter WHERE inverter.user_iduser = ? AND earnings.date BETWEEN ? and ? ORDER BY earnings.date ASC"
+    }
+
+    // Initialisation de la connexion à la base de données
+    var laConnexion = Connexion("localhost", "mydb", "root", "")
 
 
-    var querieGetLinkIDMacAddress =
-        "SELECT link.link_id FROM `link` JOIN inverter i JOIN values_inverter v join settings s JOIN warnings w on i.inverter_id = link.inverter_id and v.values_id = link.values_id and s.settings_id = link.settings_id and w.warnings_id = link.warnings_id WHERE i.macAddress = ?"
-    var querieGetInverterIDMacAddress =
-        "SELECT i.inverter_id FROM `link` JOIN inverter i JOIN values_inverter v join settings s JOIN warnings w on i.inverter_id = link.inverter_id and v.values_id = link.values_id and s.settings_id = link.settings_id and w.warnings_id = link.warnings_id WHERE i.macAddress = ?"
+    // Méthode pour vérifier si un utilisateur existe
+    fun userExist(email: String): User? {
+        val prepStatement = laConnexion.getConnexion()!!
+            .prepareStatement(querieUserExist)
+        prepStatement.setString(1, email)
 
-    var querieInsertInverter = "INSERT INTO inverter (name, macAddress, position, isOnline) VALUES (?, ?, ?, ?)"
-    var querieInsertValuesInverter =
-        "INSERT INTO values_inverter (kilowatter, volts, batteryPercentage) VALUES (?, ?, ?)"
-    var querieInsertSettingsInverter = "INSERT INTO settings (un, deux, trois) VALUES (?, ?, ?)"
-    var querieInsertWarningInverter = "INSERT INTO warnings (wUn, wDeux, wTrois) VALUES (?, ?, ?)"
-    var querieInsertLinkTable =
-        "INSERT INTO link (inverter_id, values_id, settings_id, warnings_id) VALUES (?, ?, ?, ?)"
-    var querieInsertUser =
-        "INSERT INTO user (email, login, password, isAdmin, createdat) VALUES (?, ?, PASSWORD(?), ?, ?)"
-    var querieInsertEarnings = "INSERT INTO earnings (inverter_id, date, perHour) VALUES (?, ?, ?)"
+        val rs = prepStatement.executeQuery()
+        var user: User? = null
 
-    var querieUpdateLinkWithUserId = "UPDATE link SET user_id = ? WHERE link_id = ?"
-    var querieUpdatePrice = "UPDATE price SET kwPrice = ? "
+        while (rs.next()) {
+            user = User(
+                rs.getInt("iduser"),
+                rs.getString("email"),
+                rs.getString("name"),
+                rs.getString("password"),
+                rs.getBoolean("isAdmin")
+            )
+        }
+        return user
+    }
 
-    var querieGetEarningsUser =
-        "SELECT u.user_id, e.date, e.perHour FROM `link` JOIN earnings e JOIN user u JOIN inverter i JOIN values_inverter v join settings s JOIN warnings w on u.user_id = link.user_id and i.inverter_id = link.inverter_id and v.values_id = link.values_id and s.settings_id = link.settings_id and w.warnings_id = link.warnings_id and e.inverter_id = i.inverter_id"
+    // Méthode pour vérifier si un onduleur existe
+    fun inverterExist(macAddress: String): Inverter? {
+        val prepStatement = laConnexion.getConnexion()!!
+            .prepareStatement(querieInverterExist)
+        prepStatement.setString(1, macAddress)
 
+        val rs = prepStatement.executeQuery()
+        var inverter: Inverter? = null
 
+        while (rs.next()) {
+            inverter = Inverter(
+                rs.getInt("idinverter"),
+                rs.getString("name"),
+                rs.getString("macAddress"),
+                rs.getString("position"),
+                rs.getBoolean("isOnline"),
+                rs.getInt("batteryPercentage"),
+                rs.getInt("warnings_idwarnings"),
+                rs.getInt("settings_idsettings"),
+                rs.getInt("user_iduser")
+            )
+        }
+        return inverter
+    }
+
+    // Méthode pour obtenir les valeurs d'un utilisateur
     fun getValuesUser(id: Int): AllValues? {
 
         var valeur: AllValues? = null
 
-        var prepStatement = laConnexion.conn!!
+        val prepStatement = laConnexion.conn!!
             .prepareStatement(querieGetAllUserValues)
 
         prepStatement.setInt(1, id)
 
-        var rs = prepStatement.executeQuery()
+        val rs = prepStatement.executeQuery()
 
         while (rs.next()) {
             valeur = AllValues(
-                rs.getInt("user_id"),
+                rs.getInt("iduser"),
                 rs.getString("email"),
-                rs.getString("login"),
+                rs.getString("name"),
                 rs.getString("createdAt"),
                 rs.getString("name"),
                 rs.getString("macAddress"),
                 rs.getString("position"),
                 rs.getBoolean("isOnline"),
-                rs.getInt("kilowatter"),
-                rs.getInt("volts"),
                 rs.getInt("batteryPercentage"),
-                rs.getString("un"),
-                rs.getString("deux"),
-                rs.getString("trois"),
-                rs.getString("wUn"),
-                rs.getString("wDeux"),
-                rs.getString("wTrois"),
+                rs.getString("gridVoltage"),
+                rs.getString("gridFrequency"),
+                rs.getString("ACoutputVoltage"),
+                rs.getString("ACoutputFrequency"),
+                rs.getString("ACoutputApparentPower"),
+                rs.getString("ACoutputActivePower"),
+                rs.getString("BUSvoltage"),
+                rs.getString("batteryVoltage"),
+                rs.getString("batteryChargingCurrent"),
+                rs.getString("batteryCapacity"),
+                rs.getString("inverterHeatSinkTemperature"),
+                rs.getString("PVinputCurrent"),
+                rs.getString("PVinputVoltage"),
+                rs.getString("batteryVoltageSCC"),
+                rs.getString("batteryDischargeCurrent"),
+                rs.getString("deviceStatus"),
+                rs.getBoolean("lineFail"),
+                rs.getBoolean("OPVShort"),
+                rs.getBoolean("batteryLowAlarm"),
+                rs.getBoolean("EEPROMdefault"),
+                rs.getBoolean("powerLimit"),
+                rs.getInt("highPVvoltage"),
+                rs.getInt("MPPTOverloadFault"),
+                rs.getInt("MPPTOverloadWarning"),
+                rs.getInt("batteryLowToCharge")
             )
         }
         return valeur
     }
 
+    // Méthode pour obtenir tous les identifiants des utilisateurs
     fun getAllUserId(): ArrayList<IdClient> {
         val ar_IdClient = ArrayList<IdClient>()
 
@@ -91,65 +171,22 @@ class Queries() {
         val rs = query.executeQuery()
 
         while (rs.next()) {
-            ar_IdClient.add(IdClient(rs.getInt("user_id")))
+            ar_IdClient.add(IdClient(rs.getInt("iduser")))
         }
 
         return ar_IdClient
     }
 
-    fun getUserIdAndIsAdmin(email: String): UserValueLogin? {
-
-        var result: UserValueLogin? = null
-
-        var query = laConnexion.conn!!
-            .prepareStatement(querieGetUserIdAndIsAdmin)
-
-        query.setString(1, email)
-
-        val rs = query.executeQuery()
-
-        while (rs.next()) {
-            result = UserValueLogin(
-                rs.getInt("user_id"),
-                rs.getBoolean("isAdmin")
-            )
-        }
-        return result
-    }
-
-    fun getLinkIdWithMacAddress(macAddress: String): Int? {
-        val query = laConnexion
-            .getConnexion()!!
-            .prepareStatement(querieGetLinkIDMacAddress)
-
-        query.setString(1, macAddress)
-
-        val rs = query.executeQuery()
-
-        if (rs.next()) {
-            return rs.getInt("link_id")
-        } else {
-            return null
-        }
-    }
-
-    fun getInverterIdWithMacAddress(macAddress: String): Int? {
-        val query = laConnexion
-            .getConnexion()!!
-            .prepareStatement(querieGetInverterIDMacAddress)
-
-        query.setString(1, macAddress)
-
-        val rs = query.executeQuery()
-
-        if (rs.next()) {
-            return rs.getInt("inverter_id")
-        } else {
-            return null
-        }
-    }
-
-    fun insertInverter(name: String, macAddress: String, position: String, isOnline: Boolean) {
+    // Méthode pour insérer un onduleur dans la base de données
+    fun insertInverter(
+        name: String,
+        macAddress: String,
+        position: String,
+        isOnline: Boolean,
+        batteryPercentage: Int,
+        warningsid: Int,
+        settingsid: Int
+    ) {
         val query = laConnexion
             .getConnexion()!!
             .prepareStatement(querieInsertInverter)
@@ -158,81 +195,87 @@ class Queries() {
         query.setString(2, macAddress)
         query.setString(3, position)
         query.setBoolean(4, isOnline)
+        query.setInt(5, batteryPercentage)
+        query.setInt(6, warningsid)
+        query.setInt(7, settingsid)
 
         query.executeUpdate()
     }
 
-    fun insertValuesInverter(kilowatter: Double, volts: Double, batteryPercentage: Int) {
-        val query = laConnexion
-            .getConnexion()!!
-            .prepareStatement(querieInsertValuesInverter)
-
-        query.setDouble(1, kilowatter)
-        query.setDouble(2, volts)
-        query.setInt(3, batteryPercentage)
-
-        query.executeUpdate()
-    }
-
-    fun insertSettingsInverter(set1: String, set2: String, set3: String) {
+    // Méthode pour insérer les paramètres de l'onduleur dans la base de données
+    fun insertSettingsInverter(
+        gridVoltage: String,
+        gridFrequency: String,
+        ACoutputVoltage: String,
+        ACoutputFrequency: String,
+        ACoutputApparentPower: String,
+        ACoutputActivePower: String,
+        BUSvoltage: String,
+        batteryVoltage: String,
+        batteryChargingCurrent: String,
+        batteryCapacity: String,
+        inverterHeatSinkTemperature: String,
+        PVinputCurrent: String,
+        PVinputVoltage: String,
+        batteryVoltageSCC: String,
+        batteryDischargeCurrent: String,
+        deviceStatus: String
+    ) {
         val query = laConnexion
             .getConnexion()!!
             .prepareStatement(querieInsertSettingsInverter)
 
-        query.setString(1, set1)
-        query.setString(2, set2)
-        query.setString(3, set3)
+        query.setString(1, gridVoltage)
+        query.setString(2, gridFrequency)
+        query.setString(3, ACoutputVoltage)
+        query.setString(4, ACoutputFrequency)
+        query.setString(5, ACoutputApparentPower)
+        query.setString(6, ACoutputActivePower)
+        query.setString(7, BUSvoltage)
+        query.setString(8, batteryVoltage)
+        query.setString(9, batteryChargingCurrent)
+        query.setString(10, batteryCapacity)
+        query.setString(11, inverterHeatSinkTemperature)
+        query.setString(12, PVinputCurrent)
+        query.setString(13, PVinputVoltage)
+        query.setString(14, batteryVoltageSCC)
+        query.setString(15, batteryDischargeCurrent)
+        query.setString(16, deviceStatus)
 
         query.executeUpdate()
 
     }
 
-    fun insertWarningInverter(warn1: String, warn2: String, warn3: String) {
+    // Méthode pour insérer les avertissements de l'onduleur dans la base de données
+    fun insertWarningInverter(
+        lineFail: Boolean,
+        OPVShort: Boolean,
+        batteryLowAlarm: Boolean,
+        EEPROMdefault: Boolean,
+        powerLimit: Boolean,
+        highPVvoltage: Int,
+        MPPTOverloadFault: Int,
+        MPPTOverloadWarning: Int,
+        batteryLowToCharge: Int
+    ) {
         val query = laConnexion
             .getConnexion()!!
             .prepareStatement(querieInsertWarningInverter)
 
-        query.setString(1, warn1)
-        query.setString(2, warn2)
-        query.setString(3, warn3)
+        query.setBoolean(1, lineFail)
+        query.setBoolean(2, OPVShort)
+        query.setBoolean(3, batteryLowAlarm)
+        query.setBoolean(4, EEPROMdefault)
+        query.setBoolean(5, powerLimit)
+        query.setInt(6, highPVvoltage)
+        query.setInt(7, MPPTOverloadFault)
+        query.setInt(8, MPPTOverloadWarning)
+        query.setInt(9, batteryLowToCharge)
 
         query.executeUpdate()
     }
 
-    fun isLoginCorrect(user: UserModel): UserValueLogin? {
-        val query = laConnexion
-            .getConnexion()!!
-            .prepareStatement(querieIsLoginCorrect)
-
-        query.setString(1, user.email)
-        query.setString(2, user.password)
-        val rs = query.executeQuery()
-
-        if (rs.next()) {
-            return UserValueLogin(
-                rs.getInt("user_id"),
-                rs.getBoolean("isAdmin")
-            )
-        } else {
-            return null
-        }
-    }
-
-    fun isMacCorrect(macAddress: String?): Boolean {
-        val query = laConnexion
-            .getConnexion()!!
-            .prepareStatement(querieIsMacAddressCorrect)
-
-        query.setString(1, macAddress)
-        val rs = query.executeQuery()
-
-        if (rs.next()) {
-            return true
-        } else {
-            return false
-        }
-    }
-
+    // Méthode pour obtenir le dernier identifiant d'utilisateur
     fun getLastUserID(): Int? {
         val query = laConnexion
             .getConnexion()!!
@@ -247,6 +290,7 @@ class Queries() {
         }
     }
 
+    // Méthode pour obtenir le dernier identifiant de paramètres
     fun getLastSettingsID(): Int? {
         val query = laConnexion
             .getConnexion()!!
@@ -261,6 +305,7 @@ class Queries() {
         }
     }
 
+    // Méthode pour obtenir le dernier identifiant d'avertissement
     fun getLastWarningsID(): Int? {
         val query = laConnexion
             .getConnexion()!!
@@ -275,20 +320,7 @@ class Queries() {
         }
     }
 
-    fun getLastValuesID(): Int? {
-        val query = laConnexion
-            .getConnexion()!!
-            .prepareStatement(querieGetLastValuesInverterID)
-
-        val rs = query.executeQuery()
-
-        if (rs.next()) {
-            return rs.getInt("max_id")
-        } else {
-            return null
-        }
-    }
-
+    // Méthode pour obtenir le dernier identifiant d'onduleur
     fun getLastInverterID(): Int? {
         val query = laConnexion
             .getConnexion()!!
@@ -303,20 +335,8 @@ class Queries() {
         }
     }
 
-    fun insertLinkTable(inverter_id: Int, values_id: Int, settings_id: Int, warnings_id: Int) {
-        val query = laConnexion
-            .getConnexion()!!
-            .prepareStatement(querieInsertLinkTable)
-
-        query.setInt(1, inverter_id)
-        query.setInt(2, values_id)
-        query.setInt(3, settings_id)
-        query.setInt(4, warnings_id)
-
-        query.executeUpdate()
-    }
-
-    fun insertUser(email: String, login: String, password: String, admin: Boolean, createdAt: String) {
+    // Méthode pour insérer un utilisateur dans la base de données
+    fun insertUser(email: String, login: String, password: String) {
         val query = laConnexion
             .getConnexion()!!
             .prepareStatement(querieInsertUser)
@@ -324,35 +344,11 @@ class Queries() {
         query.setString(1, email)
         query.setString(2, login)
         query.setString(3, password)
-        query.setBoolean(4, admin)
-        query.setString(5, createdAt)
 
         query.executeUpdate()
     }
 
-    fun updateLinkTable(user_id: Int, link_id: Int) {
-        val query = laConnexion
-            .getConnexion()!!
-            .prepareStatement(querieUpdateLinkWithUserId)
-
-        query.setInt(1, user_id)
-        query.setInt(2, link_id)
-
-        query.executeUpdate()
-    }
-
-    fun insertEarnings(inverterId: Int, date: String, perHour: Double) {
-        val query = laConnexion
-            .getConnexion()!!
-            .prepareStatement(querieInsertEarnings)
-
-        query.setInt(1, inverterId)
-        query.setString(2, date)
-        query.setDouble(3, perHour)
-
-        query.executeUpdate()
-    }
-
+    // Méthode pour mettre à jour le prix
     fun updatePrice(price: Double) {
         val query = laConnexion
             .getConnexion()!!
@@ -361,5 +357,124 @@ class Queries() {
         query.setDouble(1, price)
 
         query.executeUpdate()
+    }
+
+    // Méthode pour mettre à jour un utilisateur
+    fun updateUser(email: String, name: String, iduser: Int) {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieUpdateUser)
+
+        query.setString(1, email)
+        query.setString(2, name)
+        query.setInt(3, iduser)
+
+        query.executeUpdate()
+    }
+
+    // Méthode pour mettre à jour l'identifiant de l'utilisateur associé à un onduleur
+    fun updateUserIDInverter(idinverter: Int, lastUserID: Int) {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieUpdateUserIDInverter)
+
+        query.setInt(1, lastUserID)
+        query.setInt(2, idinverter)
+
+        query.executeUpdate()
+    }
+
+    // Méthode pour insérer les gains d'un onduleur dans la base de données
+    fun insertEarningInverter(date: String, euro: Double, kilowatter: Double, idinverter: Int) {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieInsertEarningsInverter)
+
+        query.setString(1, date)
+        query.setDouble(2, euro)
+        query.setDouble(3, kilowatter)
+        query.setInt(4, idinverter)
+
+        query.executeUpdate()
+    }
+
+    // Méthode pour mettre à jour les informations d'un onduleur
+    fun updateInverter(name: String, position: String, online: Boolean, batteryPercentage: Int, idinverter: Int) {
+
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieUpdateInverter)
+
+        query.setString(1, name)
+        query.setString(2, position)
+        query.setBoolean(3, online)
+        query.setInt(4, batteryPercentage)
+        query.setInt(5, idinverter)
+
+        query.executeUpdate()
+
+    }
+
+    // Méthode pour obtenir l'identifiant d'un utilisateur à partir de son email
+    fun getUserIDWithEmail(email: String): Int? {
+
+        val prepStatement = laConnexion.conn!!
+            .prepareStatement(querieGetUserId)
+
+        prepStatement.setString(1, email)
+
+        val rs = prepStatement.executeQuery()
+
+        if (rs.next()) {
+            return rs.getInt("iduser")
+        } else {
+            return null
+        }
+    }
+
+    // Méthode pour vérifier le mot de passe d'un utilisateur
+    fun checkPassword(password: String, iduser: Int): Boolean {
+
+        val prepStatement = laConnexion.conn!!
+            .prepareStatement(querieGetPassword)
+
+        prepStatement.setInt(1, iduser)
+
+        val rs = prepStatement.executeQuery()
+        var passRecu: String? = null
+
+        if (rs.next()) {
+            passRecu = rs.getString("password")
+
+        } else {
+            return false
+        }
+
+        return BCrypt.checkpw(password, passRecu)
+    }
+
+    // Méthode pour obtenir les gains d'un utilisateur entre deux dates
+    fun getEarningsWithUserIdAndDate(iduser: Int, dateDebut: String, dateFin: String): ArrayList<Earning> {
+
+        val ar_Earnings = ArrayList<Earning>()
+
+        val prepStatement = laConnexion.conn!!
+            .prepareStatement(querieGetEarningsUserBetween2Dates)
+
+
+        prepStatement.setInt(1, iduser)
+        prepStatement.setString(2, dateDebut)
+        prepStatement.setString(3, dateFin)
+
+
+
+        val rs = prepStatement.executeQuery()
+
+        while (rs.next()) {
+            ar_Earnings.add(Earning(rs.getString("date"), rs.getDouble("euro"), rs.getDouble("kilowatter")))
+        }
+
+        return ar_Earnings
+
     }
 }

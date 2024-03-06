@@ -6,5 +6,6 @@ import kotlinx.serialization.Serializable
 class AddEarningsModel(
     val macAddress: String? = null,
     val date: String? = null,
-    val perHour: Double? = null
+    val euro: Double? = null,
+    val kilowatter: Double? = null
 )

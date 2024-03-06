@@ -5,6 +5,7 @@ import com.cornuel.models.AllValues
 import com.cornuel.models.IdClient
 import io.ktor.serialization.kotlinx.*
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
@@ -57,7 +58,6 @@ fun Application.configureSockets() {
         }
 
 
-
         webSocket("ws/getalluserid") {
             var oldAr_Valeur: ArrayList<IdClient>? = null
             var ar_Valeur: ArrayList<IdClient>?
@@ -70,7 +70,7 @@ fun Application.configureSockets() {
                 delay(1000)
             }
         }
-
     }
+
 
 }

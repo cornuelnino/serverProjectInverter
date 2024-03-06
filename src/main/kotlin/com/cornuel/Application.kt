@@ -35,16 +35,8 @@ fun main() {
             keyStorePath = keyStoreFile
         }
         module {
-            install(CORS) {
-                allowMethod(HttpMethod.Options)
-                allowMethod(HttpMethod.Post)
-                allowHeader(HttpHeaders.Authorization)
-                allowHeader(HttpHeaders.ContentType)
-                allowCredentials = true
-                allowNonSimpleContentTypes = true
-                anyHost()
-            }
-
+            configureCors()
+            configureSecurity()
             configureSerialization()
             configureRouting()
             configureSockets()

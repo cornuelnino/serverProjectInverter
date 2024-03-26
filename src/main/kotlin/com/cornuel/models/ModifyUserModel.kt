@@ -5,6 +5,7 @@ import org.mindrot.jbcrypt.BCrypt
 
 @Serializable
 class ModifyUserModel(
+    val iduser: Int,
     val email: String,
     val name: String,
     val password: String,

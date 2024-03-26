@@ -7,6 +7,7 @@ data class AllValues(
     var iduser: Int? = null,
     var email: String? = null,
     var name: String? = null,
+    var isAdmin: Boolean? = null,
     var createdAt: String? = null,
 
     var inverterName: String? = null,

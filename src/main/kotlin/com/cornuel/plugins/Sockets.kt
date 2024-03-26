@@ -3,6 +3,7 @@ package com.cornuel.plugins
 import com.cornuel.bdd.services.Queries
 import com.cornuel.models.AllValues
 import com.cornuel.models.IdClient
+import com.cornuel.models.Price
 import io.ktor.serialization.kotlinx.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -27,7 +28,20 @@ fun Application.configureSockets() {
 
         val queries = Queries()
 
-        webSocket("/ws/getuservalues/{id}") {
+        webSocket("getalluserid") {
+            var oldAr_Valeur: ArrayList<IdClient>? = null
+            var ar_Valeur: ArrayList<IdClient>?
+            while (true) {
+                ar_Valeur = queries.getAllUserId()
+                if (ar_Valeur != oldAr_Valeur) {
+                    oldAr_Valeur = ar_Valeur
+                    sendSerialized(ar_Valeur)
+                }
+                delay(1000)
+            }
+        }
+
+        webSocket("getuservalues/{id}") {
 
             var oldValeur: AllValues? = null
             var flag = false
@@ -53,23 +67,23 @@ fun Application.configureSockets() {
                 }
                 delay(1000)
             }
-
-
         }
 
+        webSocket("getprice") {
+            var oldPrice: Price? = null
+            var price: Price?
 
-        webSocket("ws/getalluserid") {
-            var oldAr_Valeur: ArrayList<IdClient>? = null
-            var ar_Valeur: ArrayList<IdClient>?
-            while (true) {
-                ar_Valeur = queries.getAllUserId()
-                if (ar_Valeur != oldAr_Valeur) {
-                    oldAr_Valeur = ar_Valeur
-                    sendSerialized(ar_Valeur)
+            while (true){
+                price = queries.getPrice()
+
+                if(price != oldPrice){
+                    oldPrice = price
+                    sendSerialized(price)
                 }
                 delay(1000)
             }
         }
+
     }
 
 

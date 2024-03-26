@@ -3,7 +3,6 @@ package com.cornuel.bdd.services
 import com.cornuel.models.*
 import com.cornuel.models.jwt.Inverter
 import com.cornuel.models.jwt.User
-import org.mindrot.jbcrypt.BCrypt
 
 // Définition d'une classe Queries
 class Queries() {
@@ -40,17 +39,24 @@ class Queries() {
         var querieInsertUser =
             "INSERT INTO user (email, name, password, isAdmin, createdAt) VALUES (?, ?, ?, 0, NOW())"
 
+        var querieDeleteUser = "DELETE FROM user WHERE iduser = ?"
+
         var querieInsertEarningsInverter =
             "INSERT INTO earnings (date, euro, kilowatter, inverter_idinverter) VALUES (?, ?, ?, ?)"
 
+        var querieSetUserIdToNullInverter = "UPDATE inverter SET user_iduser = null WHERE user_iduser = ?"
+
         // Requête de mise à jour du prix
         var querieUpdatePrice = "UPDATE price SET kwPrice = ? "
+
+        // Requête de récuperation du prix
+        var querieGetPrice = "SELECT kwPrice FROM price"
 
         // Requêtes de mise à jour des données dans les tables
         var querieUpdateUserIDInverter = "UPDATE inverter SET user_iduser = ? WHERE idinverter = ?"
         var querieUpdateInverter =
             "UPDATE inverter SET name = ?, position = ?, isOnline = ?, batteryPercentage = ? WHERE idinverter = ?"
-        var querieUpdateUser = "UPDATE user SET email = ?, name = ? WHERE iduser = ?"
+        var querieUpdateUser = "UPDATE user SET email = ?, name = ?, password = ? WHERE iduser = ?"
 
         // Requête pour obtenir les gains d'un utilisateur entre deux dates
         var querieGetEarningsUserBetween2Dates =
@@ -124,6 +130,7 @@ class Queries() {
                 rs.getInt("iduser"),
                 rs.getString("email"),
                 rs.getString("name"),
+                rs.getBoolean("isAdmin"),
                 rs.getString("createdAt"),
                 rs.getString("name"),
                 rs.getString("macAddress"),
@@ -320,21 +327,6 @@ class Queries() {
         }
     }
 
-    // Méthode pour obtenir le dernier identifiant d'onduleur
-    fun getLastInverterID(): Int? {
-        val query = laConnexion
-            .getConnexion()!!
-            .prepareStatement(querieGetLastInverterID)
-
-        val rs = query.executeQuery()
-
-        if (rs.next()) {
-            return rs.getInt("max_id")
-        } else {
-            return null
-        }
-    }
-
     // Méthode pour insérer un utilisateur dans la base de données
     fun insertUser(email: String, login: String, password: String) {
         val query = laConnexion
@@ -349,25 +341,26 @@ class Queries() {
     }
 
     // Méthode pour mettre à jour le prix
-    fun updatePrice(price: Double) {
+    fun updatePrice(price: String) {
         val query = laConnexion
             .getConnexion()!!
             .prepareStatement(querieUpdatePrice)
 
-        query.setDouble(1, price)
+        query.setDouble(1, price.toDouble())
 
         query.executeUpdate()
     }
 
     // Méthode pour mettre à jour un utilisateur
-    fun updateUser(email: String, name: String, iduser: Int) {
+    fun updateUser(email: String, name: String, password: String, iduser: Int) {
         val query = laConnexion
             .getConnexion()!!
             .prepareStatement(querieUpdateUser)
 
         query.setString(1, email)
         query.setString(2, name)
-        query.setInt(3, iduser)
+        query.setString(3, password)
+        query.setInt(4, iduser)
 
         query.executeUpdate()
     }
@@ -415,44 +408,6 @@ class Queries() {
 
     }
 
-    // Méthode pour obtenir l'identifiant d'un utilisateur à partir de son email
-    fun getUserIDWithEmail(email: String): Int? {
-
-        val prepStatement = laConnexion.conn!!
-            .prepareStatement(querieGetUserId)
-
-        prepStatement.setString(1, email)
-
-        val rs = prepStatement.executeQuery()
-
-        if (rs.next()) {
-            return rs.getInt("iduser")
-        } else {
-            return null
-        }
-    }
-
-    // Méthode pour vérifier le mot de passe d'un utilisateur
-    fun checkPassword(password: String, iduser: Int): Boolean {
-
-        val prepStatement = laConnexion.conn!!
-            .prepareStatement(querieGetPassword)
-
-        prepStatement.setInt(1, iduser)
-
-        val rs = prepStatement.executeQuery()
-        var passRecu: String? = null
-
-        if (rs.next()) {
-            passRecu = rs.getString("password")
-
-        } else {
-            return false
-        }
-
-        return BCrypt.checkpw(password, passRecu)
-    }
-
     // Méthode pour obtenir les gains d'un utilisateur entre deux dates
     fun getEarningsWithUserIdAndDate(iduser: Int, dateDebut: String, dateFin: String): ArrayList<Earning> {
 
@@ -476,5 +431,45 @@ class Queries() {
 
         return ar_Earnings
 
+    }
+
+    fun getPrice(): Price? {
+
+        var price: Price? = null
+
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieGetPrice)
+
+        val rs = query.executeQuery()
+
+
+        if(rs.next()){
+            price = Price(rs.getDouble("kwPrice"))
+        }
+
+        return price
+    }
+
+    fun deleteUser(iduser: Int) {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieDeleteUser)
+
+        query.setInt(1, iduser)
+
+        println(query)
+
+        query.executeUpdate()
+    }
+
+    fun setUserIdToNullInInverterTable(iduser: Int) {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieSetUserIdToNullInverter)
+
+        query.setInt(1, iduser)
+
+        query.executeUpdate()
     }
 }

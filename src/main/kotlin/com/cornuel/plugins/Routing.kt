@@ -7,15 +7,21 @@ import com.cornuel.models.jwt.UserLoginCredentials
 import com.cornuel.models.jwt.UserRegisterCredentials
 import com.cornuel.utils.TokenManager
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
+import io.ktor.server.http.content.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.server.routing.get
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.mindrot.jbcrypt.BCrypt
+import java.io.BufferedReader
+import java.io.File
+import java.io.InputStreamReader
 import java.time.LocalDate
 import java.time.Period
 import java.time.format.DateTimeFormatter
@@ -28,21 +34,90 @@ fun Application.configureRouting() {
         // Création d'une instance de la classe Queries pour interagir avec la base de données
         val queries = Queries()
 
-        // Gestion de la route GET "/l"
-        get("/l") {
 
-            // Hachage et affichage de mots de passe pour les tests
-            val password1 = BCrypt.hashpw("test1", BCrypt.gensalt())
-            println(password1)
-            val password2 = BCrypt.hashpw("test2", BCrypt.gensalt())
-            println(password2)
-            val password3 = BCrypt.hashpw("test3", BCrypt.gensalt())
-            println(password3)
-            val password4 = BCrypt.hashpw("test4", BCrypt.gensalt())
-            println(password4)
-            val password5 = BCrypt.hashpw("test555", BCrypt.gensalt())
-            println(password5)
+        staticResources("/static", "files")
 
+
+        get("/databasepanel"){
+            call.respondRedirect("/static/index.html")
+        }
+
+        authenticate("authbdd") {
+            get("/savebdd"){
+                val backupFile =
+                    java.io.File("database_backup.sql")
+
+                try {
+                    val process = ProcessBuilder("C:\\xampp\\mysql\\bin\\mysqldump", "--user=root", "--password=", "mydb")
+                        .directory(java.io.File("C:\\xampp\\mysql\\bin"))
+                        .redirectOutput(backupFile)
+                        .start()
+
+                    val reader = BufferedReader(InputStreamReader(process.inputStream))
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        println(line) // Facultatif : Afficher la sortie de la commande
+                    }
+
+                    process.waitFor()
+
+                    val byteArray = backupFile.readBytes()
+
+                    call.response.header("Content-Disposition", "attachment; filename=\"database_backup.sql\"")
+                    call.respondBytes(byteArray)
+
+
+                    call.respondRedirect("/databasepanel")
+                } catch (e: Exception) {
+                    println("Erreur lors de la sauvegarde de la base de données : ${e.message}")
+                }
+
+            }
+        }
+
+        post("/uploadbdd"){
+            val multipartData = call.receiveMultipart()
+
+            var uploadedFile: File? = File("uploadedFile.sql")
+
+            multipartData.forEachPart { part ->
+                if (part is PartData.FileItem) {
+                    val originalFileName = part.originalFileName ?: "file.sql"
+                    val file = File.createTempFile("upload-", "-$originalFileName")
+
+                    part.streamProvider().use { input ->
+                        file.outputStream().buffered().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    uploadedFile = file
+                }
+            }
+
+
+            try {
+                // Création du processus
+                val processBuilder = ProcessBuilder("uploadFileToBDD.bat", uploadedFile.toString())
+                val process = processBuilder.start()
+
+                // Récupération de la sortie du processus
+                val inputStreamReader = InputStreamReader(process.inputStream)
+                val bufferedReader = BufferedReader(inputStreamReader)
+
+                var ligne: String?
+                while (bufferedReader.readLine().also { ligne = it } != null) {
+                    println(ligne)
+                }
+
+                // Attente de la fin du processus
+                val exitCode = process.waitFor()
+                println("Le processus s'est terminé avec le code de sortie : $exitCode")
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            call.respondRedirect("/databasepanel")
         }
 
         // Gestion de la route POST "/login"
@@ -138,31 +213,6 @@ fun Application.configureRouting() {
 
         authenticate("auth-jwt") {
 
-            // Gestion de la route POST "/insertinverter"
-            post("/insertinverter") {
-
-                try {
-                    // Réception des informations d'ajout d'un onduleur
-                    val inverter = call.receive<AddInverterModel>()
-
-                    // Insertion des paramètres et avertissements de l'onduleur dans la base de données
-                    queries.insertSettingsInverter(inverter.gridVoltage!!, inverter.gridFrequency!!, inverter.ACoutputVoltage!!, inverter.ACoutputFrequency!!, inverter.ACoutputApparentPower!!, inverter.ACoutputActivePower!!, inverter.BUSvoltage!!, inverter.batteryVoltage!!, inverter.batteryChargingCurrent!!, inverter.batteryCapacity!!, inverter.inverterHeatSinkTemperature!!, inverter.PVinputCurrent!!, inverter.PVinputVoltage!!, inverter.batteryVoltageSCC!!, inverter.batteryDischargeCurrent!!, inverter.deviceStatus!!)
-                    queries.insertWarningInverter(inverter.lineFail!!, inverter.OPVShort!!, inverter.batteryLowAlarm!!, inverter.EEPROMdefault!!, inverter.powerLimit!!, inverter.highPVvoltage!!, inverter.MPPTOverloadFault!!, inverter.MPPTOverloadWarning!!, inverter.batteryLowToCharge!!)
-
-                    // Récupération des derniers ID de paramètres et d'avertissements insérés
-                    val warningsid = queries.getLastWarningsID()
-                    val settingsid = queries.getLastSettingsID()
-
-                    // Insertion de l'onduleur avec les paramètres et les avertissements dans la base de données
-                    queries.insertInverter(inverter.name!!, inverter.macAddress!!, inverter.position!!, inverter.isOnline!!, inverter.batteryPercentage!!, warningsid!!, settingsid!!)
-
-                    call.respond(HttpStatusCode.OK, "L'onduleur a bien été créé !")
-
-                } catch (e: Exception) {
-                    call.respond(HttpStatusCode.Conflict, "Incorrect JSON data !" + e.message!!)
-                }
-            }
-
             // Gestion de la route POST "/modifyinverter"
             post("/modifyinverter") {
                 try {
@@ -179,12 +229,30 @@ fun Application.configureRouting() {
                     }
 
                     // Mise à jour des informations de l'onduleur dans la base de données
-                    queries.updateInverter(modifyInverterModel.name, modifyInverterModel.position, modifyInverterModel.isOnline, modifyInverterModel.batteryPercentage, inverter.idinverter)
+                    queries.updateInverter(modifyInverterModel.name, modifyInverterModel.position, modifyInverterModel.isOnline, modifyInverterModel.batteryPercentage, modifyInverterModel.outputActivePower, modifyInverterModel.outputVoltage, inverter.idinverter)
 
                     call.respond(HttpStatusCode.OK, "Votre onduleur a bien été modifié !")
 
                 } catch (e: Exception) {
                     call.respond(HttpStatusCode.BadRequest, "Erreur dans le JSON envoyé !")
+                }
+            }
+
+
+            post("/modifysettingsinverter"){
+                val modifySettingsInverterModel = call.receive<ModifySettingsInverterModel>()
+                val iduser = modifySettingsInverterModel.iduser
+
+                val principal = call.principal<JWTPrincipal>()
+                val isAdmin = principal!!.payload.getClaim("isAdmin").asBoolean()
+
+                if(isAdmin || principal.payload.getClaim("iduser").asInt() == iduser){
+
+                    queries.modifySettingsInverter(iduser, modifySettingsInverterModel)
+
+                    call.respond(HttpStatusCode.OK, "Les paramètres de l'onduleur à bien été modifié !")
+                } else {
+                    call.respond(HttpStatusCode.BadRequest, "Une erreur s'est produite.")
                 }
             }
 
@@ -207,21 +275,42 @@ fun Application.configureRouting() {
             // Gestion de la route POST "/modifyuser"
             post("/modifyuser") {
                 try {
-                    // Réception des informations de modification de l'utilisateur
                     val modifyUserModel = call.receive<ModifyUserModel>()
                     val iduserSelected = modifyUserModel.iduser
                     val newEmail = modifyUserModel.email
                     val newName = modifyUserModel.name
-                    val newPassword = modifyUserModel.hashedPassword()
+                    val newPassword = modifyUserModel.password
 
-                    // Vérification de la validité des informations de modification
-                    if (!modifyUserModel.isValidCredentials()) {
-                        call.respond(HttpStatusCode.BadRequest, "Format du login ou/et password incorrect.")
-                        return@post
+                    val principal = call.principal<JWTPrincipal>()
+                    val isAdmin = principal!!.payload.getClaim("isAdmin").asBoolean()
+
+                    if(isAdmin || principal.payload.getClaim("iduser").asInt() == iduserSelected){
+
+                        if(newPassword != ""){
+
+                            if (!modifyUserModel.isValidCredentials()) {
+                                call.respond(HttpStatusCode.BadRequest, "Format du login ou/et password incorrect.")
+                                return@post
+                            }
+
+                            queries.updateUser(newEmail, newName, modifyUserModel.hashedPassword(), iduserSelected)
+
+                        } else {
+                            queries.updateUserWithoutPassword(newEmail, newName, iduserSelected)
+
+                        }
+
+
+                        call.respond(HttpStatusCode.OK, "Les paramètres de l'onduleur à bien été modifié !")
+                    } else {
+                        call.respond(HttpStatusCode.BadRequest, "Une erreur s'est produite.")
                     }
 
+                    // Vérification de la validité des informations de modification
+
+
                     // Mise à jour des informations de l'utilisateur dans la base de données
-                    queries.updateUser(newEmail, newName, newPassword, iduserSelected)
+
 
                     call.respond(HttpStatusCode.OK, "Les modifications ont bien été effectuées !")
 
@@ -288,6 +377,45 @@ fun Application.configureRouting() {
             }
 
 
+        }
+
+
+        post("/modifywarningsinverter"){
+            try {
+                // Réception des informations d'ajout d'un onduleur
+                val modifyWarningsInverterModel = call.receive<ModifyWarningsInverterModel>()
+
+                queries.modifyWarningsInverter(modifyWarningsInverterModel)
+
+                call.respond(HttpStatusCode.OK, "Les warnings de l'onduleur ont bien été modifiés !")
+
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.Conflict, "Incorrect JSON data !" + e.message!!)
+            }
+        }
+
+        post("/insertinverter") {
+
+            try {
+                // Réception des informations d'ajout d'un onduleur
+                val inverter = call.receive<AddInverterModel>()
+
+                // Insertion des paramètres et avertissements de l'onduleur dans la base de données
+                queries.insertSettingsInverter(inverter.outputSourcePriority!!)
+                queries.insertWarningInverter(inverter.inverterFault!!, inverter.lineFail!!, inverter.voltageTooLow!!, inverter.voltageTooHigh!!, inverter.overTemperature!!, inverter.fanLocked!!, inverter.batteryLowAlarm!!, inverter.softFail!!, inverter.batteryTooLowToCharge!!)
+
+                // Récupération des derniers ID de paramètres et d'avertissements insérés
+                val warningsid = queries.getLastWarningsID()
+                val settingsid = queries.getLastSettingsID()
+
+                // Insertion de l'onduleur avec les paramètres et les avertissements dans la base de données
+                queries.insertInverter(inverter.name!!, inverter.macAddress!!, inverter.position!!, inverter.isOnline!!, inverter.batteryPercentage!!, inverter.outputActivePower!!, inverter.outputVoltage!!, warningsid!!, settingsid!!)
+
+                call.respond(HttpStatusCode.OK, "L'onduleur a bien été créé !")
+
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.Conflict, "Incorrect JSON data !" + e.message!!)
+            }
         }
 
         // Gestion de la route POST "/insertearning"

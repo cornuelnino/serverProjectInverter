@@ -14,37 +14,20 @@ data class AllValues(
     var macAddress: String? = null,
     var position: String? = null,
     var isInverterOnline: Boolean? = null,
-
     var batteryPercentage: Int? = null,
+    var outputActivePower: Double? = null,
+    var outputVoltage: Double? = null,
 
-    var gridVoltage: String? = null,
-    var gridPercentage: String? = null,
-    var ACoutputVoltage: String? = null,
-    var ACoutputFrequency: String? = null,
-    var ACoutputApparentPower: String? = null,
+    val outputSourceDirectory: Int? = null,
 
-    var ACoutputActivePower: String? = null,
-    var BUSvoltage: String? = null,
-    var batteryVoltage: String? = null,
-
-    var batteryChargingCurrent: String? = null,
-    var batteryCapacity: String? = null,
-    var inverterHeatSinkTemperature: String? = null,
-    var PVinputCurrent: String? = null,
-    var PVinputVoltage: String? = null,
-    var batteryVoltageSCC: String? = null,
-    var batteryDischargeCurrent: String? = null,
-    var deviceStatus: String? = null,
-
-    var lineFail: Boolean? = null,
-    var OPVShort: Boolean? = null,
-    var batteryLowAlarm: Boolean? = null,
-    var EEPROMdefault: Boolean? = null,
-    var powerLimit: Boolean? = null,
-
-    var highPVvoltage: Int? = null,
-    var MPPTOverloadFault: Int? = null,
-    var MPPTOverloadWarning: Int? = null,
-    var batteryLowToCharge: Int? = null
+    val inverterFault: Boolean? = null,
+    val lineFail: Boolean? = null,
+    val voltageTooLow: Boolean? = null,
+    val voltageTooHigh: Boolean? = null,
+    val overTemperature: Boolean? = null,
+    val fanLocked: Boolean? = null,
+    val batteryLowAlarm: Boolean? = null,
+    val softFail: Boolean? = null,
+    val batteryLowToCharge: Boolean? = null
 
 )

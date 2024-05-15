@@ -8,5 +8,7 @@ class ModifyInverterModel(
     val name: String,
     val position: String,
     val isOnline: Boolean,
-    val batteryPercentage: Int
+    val batteryPercentage: Int,
+    val outputActivePower: Double,
+    val outputVoltage: Double
 )

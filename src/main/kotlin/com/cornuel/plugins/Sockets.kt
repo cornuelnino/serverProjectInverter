@@ -3,6 +3,7 @@ package com.cornuel.plugins
 import com.cornuel.bdd.services.Queries
 import com.cornuel.models.AllValues
 import com.cornuel.models.IdClient
+import com.cornuel.models.LocationClient
 import com.cornuel.models.Price
 import io.ktor.serialization.kotlinx.*
 import io.ktor.server.application.*
@@ -79,6 +80,23 @@ fun Application.configureSockets() {
                 if(price != oldPrice){
                     oldPrice = price
                     sendSerialized(price)
+                }
+                delay(1000)
+            }
+        }
+
+
+        webSocket("getlocation") {
+
+            var oldAr_LocationClient: ArrayList<LocationClient>? = null
+            var ar_LocationClient: ArrayList<LocationClient>?
+
+            while (true){
+                ar_LocationClient = queries.getAllLocationUsers()
+
+                if(ar_LocationClient != oldAr_LocationClient){
+                    oldAr_LocationClient = ar_LocationClient
+                    sendSerialized(ar_LocationClient)
                 }
                 delay(1000)
             }

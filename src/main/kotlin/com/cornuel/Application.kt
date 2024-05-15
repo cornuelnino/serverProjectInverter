@@ -42,6 +42,7 @@ fun main() {
             configureSerialization()
             configureRouting()
             configureSockets()
+            configureTemplating()
 
         }
     }

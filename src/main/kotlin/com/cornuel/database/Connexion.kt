@@ -1,13 +1,14 @@
 package com.cornuel.bdd.services
 
+import com.cornuel.database.Config
+import kotlinx.serialization.json.Json
+import java.io.File
 import java.sql.*
 
 
-class Connexion(hostname:String, databasename:String, username:String, password:String) {
+class Connexion() {
     var conn: Connection? = null
         get() = field
-
-    private val url = "jdbc:mysql://$hostname:3306/$databasename"
 
 
     init {
@@ -17,7 +18,14 @@ class Connexion(hostname:String, databasename:String, username:String, password:
             println("erreur com.mysql.jdbc.Driver")
         }
         try {
-            conn = DriverManager.getConnection(url, username, password)
+            val cheminFichier = "src/main/kotlin/com/cornuel/database/config.json"
+
+            val contenuFichier = File(cheminFichier).readText()
+
+            val config = Json.decodeFromString<Config>(contenuFichier)
+
+            conn = DriverManager.getConnection("${config.url}${config.bdd}", config.username, config.password)
+
             println("Connexion établie !")
         } catch (ex: SQLException) {
             println("Erreur de connexion à la base de données !")

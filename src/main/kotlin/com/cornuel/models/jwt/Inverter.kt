@@ -7,6 +7,8 @@ data class Inverter(
     val position: String,
     val isOnline: Boolean,
     val batteryPercentage: Int,
+    val outputActivePower: Double,
+    val outputVoltage: Double,
     val warnings_idwarnings: Int,
     val settings_idsettings: Int,
     val user_iduser: Int,

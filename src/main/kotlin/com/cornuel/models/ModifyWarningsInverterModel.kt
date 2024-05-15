@@ -3,16 +3,8 @@ package com.cornuel.models
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class AddInverterModel(
-    val name: String? = null,
+class ModifyWarningsInverterModel(
     val macAddress: String? = null,
-    val position: String? = null,
-    val isOnline: Boolean? = null,
-    val batteryPercentage: Int? = null,
-    val outputActivePower: Double? = null,
-    val outputVoltage: Double? = null,
-
-    val outputSourcePriority: Int? = null,
 
     val inverterFault: Boolean? = null,
     val lineFail: Boolean? = null,

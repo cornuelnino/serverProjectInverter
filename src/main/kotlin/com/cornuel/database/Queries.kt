@@ -11,12 +11,13 @@ class Queries() {
 
         // Requête SQL pour récupérer toutes les valeurs des utilisateurs et des onduleurs associés
         var querieGetAllUserValues =
-            "SELECT user.iduser, user.email, user.name, user.isAdmin, user.createdAt, inverter.name, inverter.macAddress, inverter.position, inverter.isOnline, inverter.batteryPercentage, settings.gridVoltage, settings.gridFrequency, settings.ACoutputVoltage, settings.ACoutputFrequency, settings.ACoutputApparentPower, settings.ACoutputActivePower, settings.BUSvoltage, settings.batteryVoltage, settings.batteryChargingCurrent, settings.batteryCapacity, settings.inverterHeatSinkTemperature, settings.PVinputCurrent, settings.PVinputVoltage, settings.batteryVoltageSCC, settings.batteryDischargeCurrent, settings.deviceStatus, warnings.lineFail, warnings.OPVShort, warnings.batteryLowAlarm, warnings.EEPROMdefault, warnings.powerLimit, warnings.highPVvoltage, warnings.MPPTOverloadFault, warnings.MPPTOverloadWarning, warnings.batteryLowToCharge FROM inverter JOIN user JOIN settings JOIN warnings ON inverter.user_iduser = user.iduser AND inverter.settings_idsettings = settings.idsettings AND inverter.warnings_idwarnings = warnings.idwarnings AND inverter.warnings_idwarnings = warnings.idwarnings WHERE inverter.user_iduser = ?;"
+            "SELECT user.iduser, user.email, user.name, user.isAdmin, user.createdAt, inverter.name, inverter.macAddress, inverter.position, inverter.isOnline, inverter.batteryPercentage, inverter.outputActivePower, inverter.outputVoltage, settings.outputSourcePriority, warnings.inverterFault, warnings.lineFail, warnings.voltageTooLow, warnings.voltageTooHigh, warnings.overTemperature, warnings.fanLocked, warnings.batteryLowAlarm, warnings.softFail, warnings.batteryTooLowToCharge FROM inverter JOIN user JOIN settings JOIN warnings ON inverter.user_iduser = user.iduser AND inverter.settings_idsettings = settings.idsettings AND inverter.warnings_idwarnings = warnings.idwarnings AND inverter.warnings_idwarnings = warnings.idwarnings WHERE inverter.user_iduser = ?;"
 
         // Requêtes pour récupérer des informations sur les utilisateurs
         var querieGetAllUserId = "SELECT user.iduser FROM user"
         var querieGetUserId = "SELECT user.iduser FROM user WHERE user.email = ?"
         var querieGetPassword = "SELECT user.password FROM `user` WHERE user.iduser = ?"
+        var querieGetAllLocationUsers = "SELECT user.iduser, inverter.position FROM inverter JOIN user ON inverter.user_iduser = user.iduser"
 
         // Requêtes de vérification d'existence d'utilisateur et d'onduleur
         var querieUserExist = "SELECT * from user WHERE email=?"
@@ -30,11 +31,11 @@ class Queries() {
 
         // Requêtes d'insertion de données dans les tables
         var querieInsertInverter =
-            "INSERT INTO inverter (name, macAddress, position, isOnline, batteryPercentage, warnings_idwarnings, settings_idsettings, user_iduser) VALUES (?, ?, ?, ?, ?, ?, ?, null)"
+            "INSERT INTO inverter (name, macAddress, position, isOnline, batteryPercentage, outputActivePower, outputVoltage, warnings_idwarnings, settings_idsettings, user_iduser) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, null)"
         var querieInsertSettingsInverter =
-            "INSERT INTO settings (gridVoltage, gridFrequency, ACoutputVoltage, ACoutputFrequency, ACoutputApparentPower, ACoutputActivePower, BUSvoltage, batteryVoltage, batteryChargingCurrent, batteryCapacity, inverterHeatSinkTemperature, PVinputCurrent, PVinputVoltage, batteryVoltageSCC, batteryDischargeCurrent, deviceStatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO settings (outputSourcePriority) VALUES (?)"
         var querieInsertWarningInverter =
-            "INSERT INTO warnings (lineFail, OPVShort, batteryLowAlarm, EEPROMdefault, powerLimit, highPVvoltage, MPPTOverloadFault, MPPTOverloadWarning, batteryLowToCharge) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO warnings (inverterFault, lineFail, voltageTooLow, voltageTooHigh, overTemperature, fanLocked, batteryLowAlarm, softFail, batteryTooLowToCharge) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
         var querieInsertUser =
             "INSERT INTO user (email, name, password, isAdmin, createdAt) VALUES (?, ?, ?, 0, NOW())"
@@ -55,16 +56,20 @@ class Queries() {
         // Requêtes de mise à jour des données dans les tables
         var querieUpdateUserIDInverter = "UPDATE inverter SET user_iduser = ? WHERE idinverter = ?"
         var querieUpdateInverter =
-            "UPDATE inverter SET name = ?, position = ?, isOnline = ?, batteryPercentage = ? WHERE idinverter = ?"
+            "UPDATE inverter SET name = ?, position = ?, isOnline = ?, batteryPercentage = ?, outputActivePower = ?, outputVoltage = ? WHERE idinverter = ?"
         var querieUpdateUser = "UPDATE user SET email = ?, name = ?, password = ? WHERE iduser = ?"
+        var querieUpdateUserWithoutPassword = "UPDATE user SET email = ?, name = ? WHERE iduser = ?"
+        var querieUpdateSettingsInverter = "UPDATE settings JOIN inverter ON settings.idsettings = inverter.settings_idsettings JOIN user ON user.iduser = inverter.user_iduser SET settings.outputSourcePriority = ? WHERE user.iduser = ?"
+        var querieUpdateWarningsInverter = "UPDATE warnings JOIN inverter ON warnings.idwarnings = inverter.warnings_idwarnings SET warnings.inverterFault = ?, warnings.lineFail = ?, warnings.voltageTooLow = ?, warnings.voltageTooHigh = ?, warnings.overTemperature = ?, warnings.fanLocked = ?, warnings.batteryLowAlarm = ?, warnings.softFail = ?, warnings.batteryTooLowToCharge = ? WHERE inverter.macAddress = ?"
 
         // Requête pour obtenir les gains d'un utilisateur entre deux dates
         var querieGetEarningsUserBetween2Dates =
             "SELECT earnings.date, earnings.euro, earnings.kilowatter FROM `inverter` JOIN earnings on inverter.idinverter = earnings.inverter_idinverter WHERE inverter.user_iduser = ? AND earnings.date BETWEEN ? and ? ORDER BY earnings.date ASC"
     }
 
+
     // Initialisation de la connexion à la base de données
-    var laConnexion = Connexion("localhost", "mydb", "root", "")
+    var laConnexion = Connexion()
 
 
     // Méthode pour vérifier si un utilisateur existe
@@ -105,6 +110,8 @@ class Queries() {
                 rs.getString("position"),
                 rs.getBoolean("isOnline"),
                 rs.getInt("batteryPercentage"),
+                rs.getDouble("outputActivePower"),
+                rs.getDouble("outputVoltage"),
                 rs.getInt("warnings_idwarnings"),
                 rs.getInt("settings_idsettings"),
                 rs.getInt("user_iduser")
@@ -137,31 +144,18 @@ class Queries() {
                 rs.getString("position"),
                 rs.getBoolean("isOnline"),
                 rs.getInt("batteryPercentage"),
-                rs.getString("gridVoltage"),
-                rs.getString("gridFrequency"),
-                rs.getString("ACoutputVoltage"),
-                rs.getString("ACoutputFrequency"),
-                rs.getString("ACoutputApparentPower"),
-                rs.getString("ACoutputActivePower"),
-                rs.getString("BUSvoltage"),
-                rs.getString("batteryVoltage"),
-                rs.getString("batteryChargingCurrent"),
-                rs.getString("batteryCapacity"),
-                rs.getString("inverterHeatSinkTemperature"),
-                rs.getString("PVinputCurrent"),
-                rs.getString("PVinputVoltage"),
-                rs.getString("batteryVoltageSCC"),
-                rs.getString("batteryDischargeCurrent"),
-                rs.getString("deviceStatus"),
+                rs.getDouble("outputActivePower"),
+                rs.getDouble("outputVoltage"),
+                rs.getInt("outputSourcePriority"),
+                rs.getBoolean("inverterFault"),
                 rs.getBoolean("lineFail"),
-                rs.getBoolean("OPVShort"),
+                rs.getBoolean("voltageTooLow"),
+                rs.getBoolean("voltageTooHigh"),
+                rs.getBoolean("overTemperature"),
+                rs.getBoolean("fanLocked"),
                 rs.getBoolean("batteryLowAlarm"),
-                rs.getBoolean("EEPROMdefault"),
-                rs.getBoolean("powerLimit"),
-                rs.getInt("highPVvoltage"),
-                rs.getInt("MPPTOverloadFault"),
-                rs.getInt("MPPTOverloadWarning"),
-                rs.getInt("batteryLowToCharge")
+                rs.getBoolean("softFail"),
+                rs.getBoolean("batteryTooLowToCharge")
             )
         }
         return valeur
@@ -191,6 +185,8 @@ class Queries() {
         position: String,
         isOnline: Boolean,
         batteryPercentage: Int,
+        outputActivePower: Double,
+        outputVoltage: Double,
         warningsid: Int,
         settingsid: Int
     ) {
@@ -203,51 +199,21 @@ class Queries() {
         query.setString(3, position)
         query.setBoolean(4, isOnline)
         query.setInt(5, batteryPercentage)
-        query.setInt(6, warningsid)
-        query.setInt(7, settingsid)
+        query.setDouble(6, outputActivePower)
+        query.setDouble(7, outputVoltage)
+        query.setInt(8, warningsid)
+        query.setInt(9, settingsid)
 
         query.executeUpdate()
     }
 
     // Méthode pour insérer les paramètres de l'onduleur dans la base de données
-    fun insertSettingsInverter(
-        gridVoltage: String,
-        gridFrequency: String,
-        ACoutputVoltage: String,
-        ACoutputFrequency: String,
-        ACoutputApparentPower: String,
-        ACoutputActivePower: String,
-        BUSvoltage: String,
-        batteryVoltage: String,
-        batteryChargingCurrent: String,
-        batteryCapacity: String,
-        inverterHeatSinkTemperature: String,
-        PVinputCurrent: String,
-        PVinputVoltage: String,
-        batteryVoltageSCC: String,
-        batteryDischargeCurrent: String,
-        deviceStatus: String
-    ) {
+    fun insertSettingsInverter(outputSourceDirectory: Int) {
         val query = laConnexion
             .getConnexion()!!
             .prepareStatement(querieInsertSettingsInverter)
 
-        query.setString(1, gridVoltage)
-        query.setString(2, gridFrequency)
-        query.setString(3, ACoutputVoltage)
-        query.setString(4, ACoutputFrequency)
-        query.setString(5, ACoutputApparentPower)
-        query.setString(6, ACoutputActivePower)
-        query.setString(7, BUSvoltage)
-        query.setString(8, batteryVoltage)
-        query.setString(9, batteryChargingCurrent)
-        query.setString(10, batteryCapacity)
-        query.setString(11, inverterHeatSinkTemperature)
-        query.setString(12, PVinputCurrent)
-        query.setString(13, PVinputVoltage)
-        query.setString(14, batteryVoltageSCC)
-        query.setString(15, batteryDischargeCurrent)
-        query.setString(16, deviceStatus)
+        query.setInt(1, outputSourceDirectory)
 
         query.executeUpdate()
 
@@ -255,29 +221,29 @@ class Queries() {
 
     // Méthode pour insérer les avertissements de l'onduleur dans la base de données
     fun insertWarningInverter(
+        inverterFault: Boolean,
         lineFail: Boolean,
-        OPVShort: Boolean,
+        voltageTooLow: Boolean,
+        voltageTooHigh: Boolean,
+        overTemperature: Boolean,
+        fanLocked: Boolean,
         batteryLowAlarm: Boolean,
-        EEPROMdefault: Boolean,
-        powerLimit: Boolean,
-        highPVvoltage: Int,
-        MPPTOverloadFault: Int,
-        MPPTOverloadWarning: Int,
-        batteryLowToCharge: Int
+        softFail: Boolean,
+        batteryTooLowToCharge: Boolean
     ) {
         val query = laConnexion
             .getConnexion()!!
             .prepareStatement(querieInsertWarningInverter)
 
-        query.setBoolean(1, lineFail)
-        query.setBoolean(2, OPVShort)
-        query.setBoolean(3, batteryLowAlarm)
-        query.setBoolean(4, EEPROMdefault)
-        query.setBoolean(5, powerLimit)
-        query.setInt(6, highPVvoltage)
-        query.setInt(7, MPPTOverloadFault)
-        query.setInt(8, MPPTOverloadWarning)
-        query.setInt(9, batteryLowToCharge)
+        query.setBoolean(1, inverterFault)
+        query.setBoolean(2, lineFail)
+        query.setBoolean(3, voltageTooLow)
+        query.setBoolean(4, voltageTooHigh)
+        query.setBoolean(5, overTemperature)
+        query.setBoolean(6, fanLocked)
+        query.setBoolean(7, batteryLowAlarm)
+        query.setBoolean(8, softFail)
+        query.setBoolean(9, batteryTooLowToCharge)
 
         query.executeUpdate()
     }
@@ -392,7 +358,7 @@ class Queries() {
     }
 
     // Méthode pour mettre à jour les informations d'un onduleur
-    fun updateInverter(name: String, position: String, online: Boolean, batteryPercentage: Int, idinverter: Int) {
+    fun updateInverter(name: String, position: String, online: Boolean, batteryPercentage: Int, outputActivePower: Double, outputVoltage: Double, idinverter: Int) {
 
         val query = laConnexion
             .getConnexion()!!
@@ -402,7 +368,9 @@ class Queries() {
         query.setString(2, position)
         query.setBoolean(3, online)
         query.setInt(4, batteryPercentage)
-        query.setInt(5, idinverter)
+        query.setDouble(5, outputActivePower)
+        query.setDouble(6, outputVoltage)
+        query.setInt(7, idinverter)
 
         query.executeUpdate()
 
@@ -471,5 +439,65 @@ class Queries() {
         query.setInt(1, iduser)
 
         query.executeUpdate()
+    }
+
+    fun modifySettingsInverter(iduser: Int?, modifySettingsInverterModel: ModifySettingsInverterModel) {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieUpdateSettingsInverter)
+
+        query.setInt(1, modifySettingsInverterModel.outputSourcePriority!!)
+        query.setInt(2, iduser!!)
+
+        query.executeUpdate()
+
+    }
+
+    fun modifyWarningsInverter(modifyWarningsInverterModel: ModifyWarningsInverterModel) {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieUpdateWarningsInverter)
+
+
+        query.setBoolean(1, modifyWarningsInverterModel.inverterFault!!)
+        query.setBoolean(2, modifyWarningsInverterModel.lineFail!!)
+        query.setBoolean(3, modifyWarningsInverterModel.voltageTooLow!!)
+        query.setBoolean(4, modifyWarningsInverterModel.voltageTooHigh!!)
+        query.setBoolean(5, modifyWarningsInverterModel.overTemperature!!)
+        query.setBoolean(6, modifyWarningsInverterModel.fanLocked!!)
+        query.setBoolean(7, modifyWarningsInverterModel.batteryLowAlarm!!)
+        query.setBoolean(8, modifyWarningsInverterModel.softFail!!)
+        query.setBoolean(9, modifyWarningsInverterModel.batteryTooLowToCharge!!)
+        query.setString(10, modifyWarningsInverterModel.macAddress)
+
+        query.executeUpdate()
+    }
+
+    fun updateUserWithoutPassword(newEmail: String, newName: String, iduserSelected: Int) {
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieUpdateUserWithoutPassword)
+
+        query.setString(1, newEmail)
+        query.setString(2, newName)
+        query.setInt(3, iduserSelected)
+
+        query.executeUpdate()
+    }
+
+    fun getAllLocationUsers(): ArrayList<LocationClient> {
+        val arAllLocationUser = ArrayList<LocationClient>()
+
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieGetAllLocationUsers)
+
+        val rs = query.executeQuery()
+
+        while (rs.next()) {
+            arAllLocationUser.add(LocationClient(rs.getInt("iduser"), rs.getString("position")))
+        }
+
+        return arAllLocationUser
     }
 }

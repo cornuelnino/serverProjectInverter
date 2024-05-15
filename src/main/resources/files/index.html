@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="icon" type="image/png" href="logo.png">
+    <title>Database Backup Panel</title>
+</head>
+<body>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <img src="background.jpg" class="card-img-top" alt="Background Image">
+                <div class="card-body">
+                    <h5 class="card-title">Database Backup Panel</h5>
+                    <a href="/savebdd" class="btn btn-primary">DOWNLOAD</a>
+                    <form action="/uploadbdd" method="post" enctype="multipart/form-data" class="mt-3">
+                        <div class="custom-file">
+                            <input type="file" class="custom-file-input" id="file" name="file" accept=".sql">
+                            <label class="custom-file-label" for="file">Choose File</label>
+                        </div>
+                        <button type="submit" class="btn btn-success mt-3">UPLOAD</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<script>
+    // Script pour afficher le nom du fichier sélectionné
+    document.querySelector('.custom-file-input').addEventListener('change', function (e) {
+        var fileName = document.getElementById("file").files[0].name;
+        var nextSibling = e.target.nextElementSibling
+        nextSibling.innerText = fileName
+    })
+</script>
+
+</body>
+</html>

@@ -35,6 +35,17 @@ fun Application.configureSecurity() {
                 )
             }
         }
+
+        basic("authbdd") {
+            realm = "Access to the '/savebdd' path"
+            validate { credentials ->
+                if (credentials.name == "admin" && credentials.password == "Aubenas2023") {
+                    UserIdPrincipal(credentials.name)
+                } else {
+                    null
+                }
+            }
+        }
     }
 
 }

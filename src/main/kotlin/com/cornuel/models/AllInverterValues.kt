@@ -3,12 +3,8 @@ package com.cornuel.models
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class AllValues(
-    var iduser: Int? = null,
-    var email: String? = null,
-    var name: String? = null,
-    var isAdmin: Boolean? = null,
-    var createdAt: String? = null,
+data class AllInverterValues(
+    var idinverter: Int? = null,
 
     var inverterName: String? = null,
     var macAddress: String? = null,
@@ -18,7 +14,7 @@ data class AllValues(
     var outputActivePower: Double? = null,
     var outputVoltage: Double? = null,
 
-    val outputSourceDirectory: Int? = null,
+    val outputSourcePriority: Int? = null,
 
     val inverterFault: Boolean? = null,
     val lineFail: Boolean? = null,

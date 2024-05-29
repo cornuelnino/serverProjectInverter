@@ -11,13 +11,15 @@ class Queries() {
 
         // Requête SQL pour récupérer toutes les valeurs des utilisateurs et des onduleurs associés
         var querieGetAllUserValues =
-            "SELECT user.iduser, user.email, user.name, user.isAdmin, user.createdAt, inverter.name, inverter.macAddress, inverter.position, inverter.isOnline, inverter.batteryPercentage, inverter.outputActivePower, inverter.outputVoltage, settings.outputSourcePriority, warnings.inverterFault, warnings.lineFail, warnings.voltageTooLow, warnings.voltageTooHigh, warnings.overTemperature, warnings.fanLocked, warnings.batteryLowAlarm, warnings.softFail, warnings.batteryTooLowToCharge FROM inverter JOIN user JOIN settings JOIN warnings ON inverter.user_iduser = user.iduser AND inverter.settings_idsettings = settings.idsettings AND inverter.warnings_idwarnings = warnings.idwarnings AND inverter.warnings_idwarnings = warnings.idwarnings WHERE inverter.user_iduser = ?;"
+            "SELECT user.iduser, user.email, user.name, user.isAdmin, user.createdAt, inverter.inverterName, inverter.macAddress, inverter.position, inverter.isOnline, inverter.batteryPercentage, inverter.outputActivePower, inverter.outputVoltage, settings.outputSourcePriority, warnings.inverterFault, warnings.lineFail, warnings.voltageTooLow, warnings.voltageTooHigh, warnings.overTemperature, warnings.fanLocked, warnings.batteryLowAlarm, warnings.softFail, warnings.batteryTooLowToCharge FROM inverter JOIN user JOIN settings JOIN warnings ON inverter.user_iduser = user.iduser AND inverter.settings_idsettings = settings.idsettings AND inverter.warnings_idwarnings = warnings.idwarnings AND inverter.warnings_idwarnings = warnings.idwarnings WHERE inverter.user_iduser = ?;"
+        var querieGetAllInverterValues = "SELECT inverter.idinverter, inverter.inverterName, inverter.macAddress, inverter.position, inverter.isOnline, inverter.batteryPercentage, inverter.outputActivePower, inverter.outputVoltage, settings.outputSourcePriority, warnings.inverterFault, warnings.lineFail, warnings.voltageTooLow, warnings.voltageTooHigh, warnings.overTemperature, warnings.fanLocked, warnings.batteryLowAlarm, warnings.softFail, warnings.batteryTooLowToCharge FROM inverter JOIN settings JOIN warnings ON inverter.settings_idsettings = settings.idsettings AND inverter.warnings_idwarnings = warnings.idwarnings AND inverter.warnings_idwarnings = warnings.idwarnings WHERE inverter.idinverter = ?;"
 
         // Requêtes pour récupérer des informations sur les utilisateurs
         var querieGetAllUserId = "SELECT user.iduser FROM user"
+        var querieGetAllInverterId = "SELECT inverter.idinverter FROM inverter"
         var querieGetUserId = "SELECT user.iduser FROM user WHERE user.email = ?"
         var querieGetPassword = "SELECT user.password FROM `user` WHERE user.iduser = ?"
-        var querieGetAllLocationUsers = "SELECT user.iduser, inverter.position FROM inverter JOIN user ON inverter.user_iduser = user.iduser"
+        var querieGetAllLocationUsers = "SELECT user.iduser, inverter.position FROM inverter JOIN user ON inverter.user_iduser = user.iduser WHERE user.isAdmin = false"
 
         // Requêtes de vérification d'existence d'utilisateur et d'onduleur
         var querieUserExist = "SELECT * from user WHERE email=?"
@@ -31,7 +33,7 @@ class Queries() {
 
         // Requêtes d'insertion de données dans les tables
         var querieInsertInverter =
-            "INSERT INTO inverter (name, macAddress, position, isOnline, batteryPercentage, outputActivePower, outputVoltage, warnings_idwarnings, settings_idsettings, user_iduser) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, null)"
+            "INSERT INTO inverter (inverterName, macAddress, position, isOnline, batteryPercentage, outputActivePower, outputVoltage, warnings_idwarnings, settings_idsettings, user_iduser) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, null)"
         var querieInsertSettingsInverter =
             "INSERT INTO settings (outputSourcePriority) VALUES (?)"
         var querieInsertWarningInverter =
@@ -56,7 +58,7 @@ class Queries() {
         // Requêtes de mise à jour des données dans les tables
         var querieUpdateUserIDInverter = "UPDATE inverter SET user_iduser = ? WHERE idinverter = ?"
         var querieUpdateInverter =
-            "UPDATE inverter SET name = ?, position = ?, isOnline = ?, batteryPercentage = ?, outputActivePower = ?, outputVoltage = ? WHERE idinverter = ?"
+            "UPDATE inverter SET inverterName = ?, position = ?, isOnline = ?, batteryPercentage = ?, outputActivePower = ?, outputVoltage = ? WHERE idinverter = ?"
         var querieUpdateUser = "UPDATE user SET email = ?, name = ?, password = ? WHERE iduser = ?"
         var querieUpdateUserWithoutPassword = "UPDATE user SET email = ?, name = ? WHERE iduser = ?"
         var querieUpdateSettingsInverter = "UPDATE settings JOIN inverter ON settings.idsettings = inverter.settings_idsettings JOIN user ON user.iduser = inverter.user_iduser SET settings.outputSourcePriority = ? WHERE user.iduser = ?"
@@ -105,7 +107,7 @@ class Queries() {
         while (rs.next()) {
             inverter = Inverter(
                 rs.getInt("idinverter"),
-                rs.getString("name"),
+                rs.getString("inverterName"),
                 rs.getString("macAddress"),
                 rs.getString("position"),
                 rs.getBoolean("isOnline"),
@@ -121,9 +123,9 @@ class Queries() {
     }
 
     // Méthode pour obtenir les valeurs d'un utilisateur
-    fun getValuesUser(id: Int): AllValues? {
+    fun getValuesUser(id: Int): AllUserValues? {
 
-        var valeur: AllValues? = null
+        var valeur: AllUserValues? = null
 
         val prepStatement = laConnexion.conn!!
             .prepareStatement(querieGetAllUserValues)
@@ -133,13 +135,13 @@ class Queries() {
         val rs = prepStatement.executeQuery()
 
         while (rs.next()) {
-            valeur = AllValues(
+            valeur = AllUserValues(
                 rs.getInt("iduser"),
                 rs.getString("email"),
                 rs.getString("name"),
                 rs.getBoolean("isAdmin"),
                 rs.getString("createdAt"),
-                rs.getString("name"),
+                rs.getString("inverterName"),
                 rs.getString("macAddress"),
                 rs.getString("position"),
                 rs.getBoolean("isOnline"),
@@ -499,5 +501,56 @@ class Queries() {
         }
 
         return arAllLocationUser
+    }
+
+    fun getAllInverterId(): ArrayList<IdInverter>? {
+        val ar_IdClient = ArrayList<IdInverter>()
+
+        val query = laConnexion
+            .getConnexion()!!
+            .prepareStatement(querieGetAllInverterId)
+
+        val rs = query.executeQuery()
+
+        while (rs.next()) {
+            ar_IdClient.add(IdInverter(rs.getInt("idinverter")))
+        }
+
+        return ar_IdClient
+    }
+
+    fun getValuesInverter(id: Int): AllInverterValues? {
+        var valeur: AllInverterValues? = null
+
+        val prepStatement = laConnexion.conn!!
+            .prepareStatement(querieGetAllInverterValues)
+
+        prepStatement.setInt(1, id)
+
+        val rs = prepStatement.executeQuery()
+
+        while (rs.next()) {
+            valeur = AllInverterValues(
+                rs.getInt("idinverter"),
+                rs.getString("inverterName"),
+                rs.getString("macAddress"),
+                rs.getString("position"),
+                rs.getBoolean("isOnline"),
+                rs.getInt("batteryPercentage"),
+                rs.getDouble("outputActivePower"),
+                rs.getDouble("outputVoltage"),
+                rs.getInt("outputSourcePriority"),
+                rs.getBoolean("inverterFault"),
+                rs.getBoolean("lineFail"),
+                rs.getBoolean("voltageTooLow"),
+                rs.getBoolean("voltageTooHigh"),
+                rs.getBoolean("overTemperature"),
+                rs.getBoolean("fanLocked"),
+                rs.getBoolean("batteryLowAlarm"),
+                rs.getBoolean("softFail"),
+                rs.getBoolean("batteryTooLowToCharge")
+            )
+        }
+        return valeur
     }
 }

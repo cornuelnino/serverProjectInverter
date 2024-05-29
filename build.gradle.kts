@@ -40,7 +40,6 @@ dependencies {
     implementation("io.ktor:ktor-network-tls-certificates:$ktor_version")
     implementation("io.ktor:ktor-server-freemarker:$ktor_version")
     implementation("io.ktor:ktor-server-auth:$ktor_version")
-
     implementation("org.jetbrains.exposed:exposed-core:0.32.1")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.32.1")
     implementation("com.h2database:h2:1.4.200")

@@ -1,6 +1,7 @@
 package com.cornuel.plugins
 
 import com.cornuel.bdd.services.Queries
+import com.cornuel.isDistant
 import com.cornuel.models.*
 import com.cornuel.models.jwt.SendToken
 import com.cornuel.models.jwt.UserLoginCredentials
@@ -11,13 +12,16 @@ import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
+import io.ktor.server.freemarker.*
 import io.ktor.server.http.content.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.routing.get
+import io.netty.util.internal.ResourcesUtil
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.h2.tools.Shell
 import org.mindrot.jbcrypt.BCrypt
 import java.io.BufferedReader
 import java.io.File
@@ -30,94 +34,104 @@ import kotlin.collections.ArrayList
 // Fonction de configuration du routage de l'application
 fun Application.configureRouting() {
     routing {
-
         // Création d'une instance de la classe Queries pour interagir avec la base de données
         val queries = Queries()
 
-
         staticResources("/static", "files")
 
-
-        get("/databasepanel"){
+        get("/databasepanel") {
             call.respondRedirect("/static/index.html")
         }
 
         authenticate("authbdd") {
-            get("/savebdd"){
-                val backupFile =
-                    java.io.File("database_backup.sql")
 
-                try {
-                    val process = ProcessBuilder("C:\\xampp\\mysql\\bin\\mysqldump", "--user=root", "--password=", "mydb")
-                        .directory(java.io.File("C:\\xampp\\mysql\\bin"))
-                        .redirectOutput(backupFile)
-                        .start()
+            get("/savebdd") {
+                if (isDistant == 1) {
+                    val backupFile =
+                        File("database_backup.sql")
 
-                    val reader = BufferedReader(InputStreamReader(process.inputStream))
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        println(line) // Facultatif : Afficher la sortie de la commande
+                    try {
+                        val process =
+                            ProcessBuilder("C:\\xampp\\mysql\\bin\\mysqldump", "--user=root", "--password=", "mydb")
+                                .directory(File("C:\\xampp\\mysql\\bin"))
+                                .redirectOutput(backupFile)
+                                .start()
+
+                        val reader = BufferedReader(InputStreamReader(process.inputStream))
+                        var line: String?
+                        while (reader.readLine().also { line = it } != null) {
+                            println(line) // Facultatif : Afficher la sortie de la commande
+                        }
+
+                        process.waitFor()
+
+                        val byteArray = backupFile.readBytes()
+
+                        call.response.header("Content-Disposition", "attachment; filename=\"database_backup.sql\"")
+                        call.respondBytes(byteArray)
+
+
+                        call.respondRedirect("/databasepanel")
+                    } catch (e: Exception) {
+                        println("Erreur lors de la sauvegarde de la base de données : ${e.message}")
                     }
 
-                    process.waitFor()
-
-                    val byteArray = backupFile.readBytes()
-
-                    call.response.header("Content-Disposition", "attachment; filename=\"database_backup.sql\"")
-                    call.respondBytes(byteArray)
-
-
-                    call.respondRedirect("/databasepanel")
-                } catch (e: Exception) {
-                    println("Erreur lors de la sauvegarde de la base de données : ${e.message}")
+                } else if (isDistant == 2) {
+                    call.respondRedirect("/static/warning.html")
                 }
 
             }
         }
 
-        post("/uploadbdd"){
+        post("/uploadbdd") {
             val multipartData = call.receiveMultipart()
 
-            var uploadedFile: File? = File("uploadedFile.sql")
+            if (isDistant == 1) {
 
-            multipartData.forEachPart { part ->
-                if (part is PartData.FileItem) {
-                    val originalFileName = part.originalFileName ?: "file.sql"
-                    val file = File.createTempFile("upload-", "-$originalFileName")
+                var uploadedFile: File? = File("saveBDD/uploadedFile.sql")
 
-                    part.streamProvider().use { input ->
-                        file.outputStream().buffered().use { output ->
-                            input.copyTo(output)
+                multipartData.forEachPart { part ->
+                    if (part is PartData.FileItem) {
+                        val originalFileName = part.originalFileName!!.replace(" ", "_") ?: "file.sql"
+                        val file = File.createTempFile("upload-", "-$originalFileName")
+
+                        part.streamProvider().use { input ->
+                            file.outputStream().buffered().use { output ->
+                                input.copyTo(output)
+                            }
                         }
+                        uploadedFile = file
                     }
-                    uploadedFile = file
-                }
-            }
-
-
-            try {
-                // Création du processus
-                val processBuilder = ProcessBuilder("uploadFileToBDD.bat", uploadedFile.toString())
-                val process = processBuilder.start()
-
-                // Récupération de la sortie du processus
-                val inputStreamReader = InputStreamReader(process.inputStream)
-                val bufferedReader = BufferedReader(inputStreamReader)
-
-                var ligne: String?
-                while (bufferedReader.readLine().also { ligne = it } != null) {
-                    println(ligne)
                 }
 
-                // Attente de la fin du processus
-                val exitCode = process.waitFor()
-                println("Le processus s'est terminé avec le code de sortie : $exitCode")
+                try {
+                    // Création du processus
+                    val processBuilder = ProcessBuilder("./uploadFileToBDD.bat", uploadedFile.toString())
+                    val process = processBuilder.start()
 
-            } catch (e: Exception) {
-                e.printStackTrace()
+                    // Récupération de la sortie du processus
+                    val inputStreamReader = InputStreamReader(process.inputStream)
+                    val bufferedReader = BufferedReader(inputStreamReader)
+
+                    var ligne: String?
+                    while (bufferedReader.readLine().also { ligne = it } != null) {
+                        println(ligne)
+                    }
+
+                    // Attente de la fin du processus
+                    val exitCode = process.waitFor()
+                    println("Le processus s'est terminé avec le code de sortie : $exitCode")
+
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                call.respondRedirect("/databasepanel")
+
+            } else if (isDistant == 2) {
+                call.respondRedirect("/static/warning.html")
             }
 
-            call.respondRedirect("/databasepanel")
         }
 
         // Gestion de la route POST "/login"
@@ -153,7 +167,8 @@ fun Application.configureRouting() {
                     return@post
                 }
                 // Génération du jeton JWT et envoi de la réponse avec le jeton
-                val token = SendToken(user.iduser, user.email, user.name, user.isAdmin, tokenManager.generateJWTToken(user))
+                val token =
+                    SendToken(user.iduser, user.email, user.name, user.isAdmin, tokenManager.generateJWTToken(user))
                 call.respond(HttpStatusCode.OK, token)
 
             } catch (e: Exception) {
@@ -162,8 +177,7 @@ fun Application.configureRouting() {
         }
 
         // Gestion de la route POST "/register"
-        post("/register"){
-
+        post("/register") {
             try {
                 // Réception des informations d'enregistrement de l'utilisateur
                 val userRegisterCredentials = call.receive<UserRegisterCredentials>()
@@ -229,7 +243,15 @@ fun Application.configureRouting() {
                     }
 
                     // Mise à jour des informations de l'onduleur dans la base de données
-                    queries.updateInverter(modifyInverterModel.name, modifyInverterModel.position, modifyInverterModel.isOnline, modifyInverterModel.batteryPercentage, modifyInverterModel.outputActivePower, modifyInverterModel.outputVoltage, inverter.idinverter)
+                    queries.updateInverter(
+                        modifyInverterModel.name,
+                        modifyInverterModel.position,
+                        modifyInverterModel.isOnline,
+                        modifyInverterModel.batteryPercentage,
+                        modifyInverterModel.outputActivePower,
+                        modifyInverterModel.outputVoltage,
+                        inverter.idinverter
+                    )
 
                     call.respond(HttpStatusCode.OK, "Votre onduleur a bien été modifié !")
 
@@ -239,14 +261,14 @@ fun Application.configureRouting() {
             }
 
 
-            post("/modifysettingsinverter"){
+            post("/modifysettingsinverter") {
                 val modifySettingsInverterModel = call.receive<ModifySettingsInverterModel>()
                 val iduser = modifySettingsInverterModel.iduser
 
                 val principal = call.principal<JWTPrincipal>()
                 val isAdmin = principal!!.payload.getClaim("isAdmin").asBoolean()
 
-                if(isAdmin || principal.payload.getClaim("iduser").asInt() == iduser){
+                if (isAdmin || principal.payload.getClaim("iduser").asInt() == iduser) {
 
                     queries.modifySettingsInverter(iduser, modifySettingsInverterModel)
 
@@ -284,9 +306,9 @@ fun Application.configureRouting() {
                     val principal = call.principal<JWTPrincipal>()
                     val isAdmin = principal!!.payload.getClaim("isAdmin").asBoolean()
 
-                    if(isAdmin || principal.payload.getClaim("iduser").asInt() == iduserSelected){
+                    if (isAdmin || principal.payload.getClaim("iduser").asInt() == iduserSelected) {
 
-                        if(newPassword != ""){
+                        if (newPassword != "") {
 
                             if (!modifyUserModel.isValidCredentials()) {
                                 call.respond(HttpStatusCode.BadRequest, "Format du login ou/et password incorrect.")
@@ -320,7 +342,7 @@ fun Application.configureRouting() {
             }
 
             // Gestion de la route POST "/getearningwithdate"
-            post("/getearningwithdate"){
+            post("/getearningwithdate") {
 
                 try {
                     // Réception des dates envoyées en JSON
@@ -330,24 +352,9 @@ fun Application.configureRouting() {
                     val dateDebut = getEarningsWith2Dates.dateDebut
                     val dateFin = getEarningsWith2Dates.dateFin
 
-                    val dateFormatter: DateTimeFormatter =  DateTimeFormatter.ofPattern("yyyy-MM-dd")
-
-                    val from = LocalDate.parse(dateDebut, dateFormatter)
-                    val to = LocalDate.parse(dateFin, dateFormatter)
-
-                    val period = Period.between(from, to)
-                    val years = period.years
-                    val months = period.months
-                    val days = period.days
-
-                    println(years)
-                    println(" ")
-                    println(months)
-                    println(" ")
-                    println(days)
-
                     // Récupération des gains de l'utilisateur entre les deux dates spécifiées
-                    val ar_Earnings: ArrayList<Earning> = queries.getEarningsWithUserIdAndDate(iduser, dateDebut, dateFin)
+                    val ar_Earnings: ArrayList<Earning> =
+                        queries.getEarningsWithUserIdAndDate(iduser, dateDebut, dateFin)
 
                     // Encodage des gains en JSON et envoi de la réponse
                     val json = Json.encodeToString(ar_Earnings)
@@ -359,14 +366,14 @@ fun Application.configureRouting() {
                 }
             }
 
-            post("/deleteuser"){
+            post("/deleteuser") {
                 val idClient = call.receive<IdClient>()
                 val iduser = idClient.idClient
 
                 val principal = call.principal<JWTPrincipal>()
                 val isAdmin = principal!!.payload.getClaim("isAdmin").asBoolean()
 
-                if(isAdmin || principal.payload.getClaim("iduser").asInt() == iduser){
+                if (isAdmin || principal.payload.getClaim("iduser").asInt() == iduser) {
                     queries.setUserIdToNullInInverterTable(iduser!!)
                     queries.deleteUser(iduser)
 
@@ -380,7 +387,7 @@ fun Application.configureRouting() {
         }
 
 
-        post("/modifywarningsinverter"){
+        post("/modifywarningsinverter") {
             try {
                 // Réception des informations d'ajout d'un onduleur
                 val modifyWarningsInverterModel = call.receive<ModifyWarningsInverterModel>()
@@ -402,14 +409,34 @@ fun Application.configureRouting() {
 
                 // Insertion des paramètres et avertissements de l'onduleur dans la base de données
                 queries.insertSettingsInverter(inverter.outputSourcePriority!!)
-                queries.insertWarningInverter(inverter.inverterFault!!, inverter.lineFail!!, inverter.voltageTooLow!!, inverter.voltageTooHigh!!, inverter.overTemperature!!, inverter.fanLocked!!, inverter.batteryLowAlarm!!, inverter.softFail!!, inverter.batteryTooLowToCharge!!)
+                queries.insertWarningInverter(
+                    inverter.inverterFault!!,
+                    inverter.lineFail!!,
+                    inverter.voltageTooLow!!,
+                    inverter.voltageTooHigh!!,
+                    inverter.overTemperature!!,
+                    inverter.fanLocked!!,
+                    inverter.batteryLowAlarm!!,
+                    inverter.softFail!!,
+                    inverter.batteryTooLowToCharge!!
+                )
 
                 // Récupération des derniers ID de paramètres et d'avertissements insérés
                 val warningsid = queries.getLastWarningsID()
                 val settingsid = queries.getLastSettingsID()
 
                 // Insertion de l'onduleur avec les paramètres et les avertissements dans la base de données
-                queries.insertInverter(inverter.name!!, inverter.macAddress!!, inverter.position!!, inverter.isOnline!!, inverter.batteryPercentage!!, inverter.outputActivePower!!, inverter.outputVoltage!!, warningsid!!, settingsid!!)
+                queries.insertInverter(
+                    inverter.name!!,
+                    inverter.macAddress!!,
+                    inverter.position!!,
+                    inverter.isOnline!!,
+                    inverter.batteryPercentage!!,
+                    inverter.outputActivePower!!,
+                    inverter.outputVoltage!!,
+                    warningsid!!,
+                    settingsid!!
+                )
 
                 call.respond(HttpStatusCode.OK, "L'onduleur a bien été créé !")
 

@@ -227,40 +227,6 @@ fun Application.configureRouting() {
 
         authenticate("auth-jwt") {
 
-            // Gestion de la route POST "/modifyinverter"
-            post("/modifyinverter") {
-                try {
-                    // Réception des informations de modification de l'onduleur
-                    val modifyInverterModel = call.receive<ModifyInverterModel>()
-                    val macAddress = modifyInverterModel.macAddress
-
-                    // Vérification de l'existence de l'onduleur avec l'adresse MAC spécifiée
-                    val inverter = queries.inverterExist(macAddress)
-
-                    if (inverter == null) {
-                        call.respond(HttpStatusCode.BadRequest, "L'adresse MAC ne correspond à aucun onduleur !")
-                        return@post
-                    }
-
-                    // Mise à jour des informations de l'onduleur dans la base de données
-                    queries.updateInverter(
-                        modifyInverterModel.name,
-                        modifyInverterModel.position,
-                        modifyInverterModel.isOnline,
-                        modifyInverterModel.batteryPercentage,
-                        modifyInverterModel.outputActivePower,
-                        modifyInverterModel.outputVoltage,
-                        inverter.idinverter
-                    )
-
-                    call.respond(HttpStatusCode.OK, "Votre onduleur a bien été modifié !")
-
-                } catch (e: Exception) {
-                    call.respond(HttpStatusCode.BadRequest, "Erreur dans le JSON envoyé !")
-                }
-            }
-
-
             post("/modifysettingsinverter") {
                 val modifySettingsInverterModel = call.receive<ModifySettingsInverterModel>()
                 val iduser = modifySettingsInverterModel.iduser
@@ -442,6 +408,39 @@ fun Application.configureRouting() {
 
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.Conflict, "Incorrect JSON data !" + e.message!!)
+            }
+        }
+
+        // Gestion de la route POST "/modifyinverter"
+        post("/modifyinverter") {
+            try {
+                // Réception des informations de modification de l'onduleur
+                val modifyInverterModel = call.receive<ModifyInverterModel>()
+                val macAddress = modifyInverterModel.macAddress
+
+                // Vérification de l'existence de l'onduleur avec l'adresse MAC spécifiée
+                val inverter = queries.inverterExist(macAddress)
+
+                if (inverter == null) {
+                    call.respond(HttpStatusCode.BadRequest, "L'adresse MAC ne correspond à aucun onduleur !")
+                    return@post
+                }
+
+                // Mise à jour des informations de l'onduleur dans la base de données
+                queries.updateInverter(
+                    modifyInverterModel.name,
+                    modifyInverterModel.position,
+                    modifyInverterModel.isOnline,
+                    modifyInverterModel.batteryPercentage,
+                    modifyInverterModel.outputActivePower,
+                    modifyInverterModel.outputVoltage,
+                    inverter.idinverter
+                )
+
+                call.respond(HttpStatusCode.OK, "Votre onduleur a bien été modifié !")
+
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest, "Erreur dans le JSON envoyé !")
             }
         }
 
